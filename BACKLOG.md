@@ -4,7 +4,7 @@ Riferimento UX: `docs/ciamafa-design-reference.md`. Ogni fase verrà dettagliata
 
 - [x] **Fase 0: Scaffold**
   Progetto Flutter, struttura cartelle, tema, migrazioni Supabase (schema, scadenza a mezzanotte, RLS, seed gruppo), CLAUDE.md.
-- [ ] **Fase 1: Onboarding**
+- [x] **Fase 1: Onboarding**
   Anonymous sign-in, nickname univoco nel gruppo, toggle notifiche, join al gruppo unico.
 - [ ] **Fase 2: Home**
   5 attività fisse: Bar, Bombolone, Posto Chill, Mangiare, "Bho, vediamoci e decidiamo". Header con avatar (Profilo) e pillola Impegni.

@@ -18,7 +18,7 @@ Stack: Flutter + Riverpod (riverpod_generator) + go_router + Supabase (Postgres/
 ## Convenzioni di codice
 - Struttura `lib/`: `core/` (theme, router, supabase client, costanti), `features/<feature>/`, `shared/` (widget riusabili).
 - Provider Riverpod in file `*_provider.dart` (con `riverpod_generator`); un file provider per feature come punto di partenza.
-- Chiavi via `--dart-define` (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `MAPBOX_ACCESS_TOKEN`), mai committate.
+- Config (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `MAPBOX_ACCESS_TOKEN`) in `env.json` (gitignored, da `env.example.json`), letto come asset da `Env.load()`; `--dart-define` ha la precedenza. Mai committata.
 - Test con `flutter_test` + `mocktail`, in `test/` con struttura speculare a `lib/`.
 
 ## Comandi
@@ -27,6 +27,6 @@ flutter pub get
 dart run build_runner build --delete-conflicting-outputs   # codegen Riverpod
 flutter analyze                                            # lint
 flutter test                                               # test
-flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_PUBLISHABLE_KEY=... --dart-define=MAPBOX_ACCESS_TOKEN=...
+flutter run                                                # legge env.json (asset); ./run.sh equivale a usare --dart-define-from-file
 ```
 Migrazioni DB: `supabase/migrations/` (applicare con Supabase CLI: `supabase db push`).

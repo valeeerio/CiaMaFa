@@ -5,6 +5,7 @@
 create or replace function public.set_plan_expiry()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   new.expires_at :=
