@@ -17,11 +17,11 @@ void main() {
   });
 
   Future<void> pump(WidgetTester tester) => tester.pumpWidget(
-        ProviderScope(
-          overrides: [profileRepositoryProvider.overrideWithValue(repo)],
-          child: const MaterialApp(home: OnboardingScreen()),
-        ),
-      );
+    ProviderScope(
+      overrides: [profileRepositoryProvider.overrideWithValue(repo)],
+      child: const MaterialApp(home: OnboardingScreen()),
+    ),
+  );
 
   FilledButton cta(WidgetTester tester) =>
       tester.widget<FilledButton>(find.byType(FilledButton));
@@ -39,12 +39,15 @@ void main() {
     expect(cta(tester).onPressed, isNotNull);
   });
 
-  testWidgets('shows "Nickname già in uso" when nickname is taken',
-      (tester) async {
-    when(() => repo.joinGroup(
-          nickname: any(named: 'nickname'),
-          notificationsEnabled: any(named: 'notificationsEnabled'),
-        )).thenThrow(const NicknameTakenException());
+  testWidgets('shows "Nickname già in uso" when nickname is taken', (
+    tester,
+  ) async {
+    when(
+      () => repo.joinGroup(
+        nickname: any(named: 'nickname'),
+        notificationsEnabled: any(named: 'notificationsEnabled'),
+      ),
+    ).thenThrow(const NicknameTakenException());
     await pump(tester);
 
     await tester.enterText(find.byType(TextField), 'Marta');

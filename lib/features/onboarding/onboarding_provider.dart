@@ -30,7 +30,9 @@ class OnboardingController extends _$OnboardingController {
   }) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
-      final profile = await ref.read(profileRepositoryProvider).joinGroup(
+      final profile = await ref
+          .read(profileRepositoryProvider)
+          .joinGroup(
             nickname: nickname.trim(),
             notificationsEnabled: notificationsEnabled,
           );

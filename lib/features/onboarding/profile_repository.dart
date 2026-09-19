@@ -10,10 +10,10 @@ class Profile {
   });
 
   factory Profile.fromRow(Map<String, dynamic> row) => Profile(
-        id: row['id'] as String,
-        nickname: row['nickname'] as String,
-        notificationsEnabled: row['notifications_enabled'] as bool,
-      );
+    id: row['id'] as String,
+    nickname: row['nickname'] as String,
+    notificationsEnabled: row['notifications_enabled'] as bool,
+  );
 
   final String id;
   final String nickname;
@@ -59,7 +59,8 @@ class SupabaseProfileRepository implements ProfileRepository {
     required bool notificationsEnabled,
   }) async {
     final user =
-        _client.auth.currentUser ?? (await _client.auth.signInAnonymously()).user!;
+        _client.auth.currentUser ??
+        (await _client.auth.signInAnonymously()).user!;
     try {
       final row = await _client
           .from('profiles')

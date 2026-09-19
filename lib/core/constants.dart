@@ -8,10 +8,12 @@ import 'package:flutter/services.dart';
 /// `env.json` (gitignored, copia di `env.example.json`).
 abstract final class Env {
   static String supabaseUrl = const String.fromEnvironment('SUPABASE_URL');
-  static String supabasePublishableKey =
-      const String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
-  static String mapboxToken =
-      const String.fromEnvironment('MAPBOX_ACCESS_TOKEN');
+  static String supabasePublishableKey = const String.fromEnvironment(
+    'SUPABASE_PUBLISHABLE_KEY',
+  );
+  static String mapboxToken = const String.fromEnvironment(
+    'MAPBOX_ACCESS_TOKEN',
+  );
 
   static bool get isSupabaseConfigured =>
       supabaseUrl.isNotEmpty && supabasePublishableKey.isNotEmpty;
@@ -20,13 +22,16 @@ abstract final class Env {
   static Future<void> load() async {
     if (isSupabaseConfigured) return;
     try {
-      final map = jsonDecode(await rootBundle.loadString('env.json'))
-          as Map<String, dynamic>;
+      final map = jsonDecode(
+        await rootBundle.loadString('env.json'),
+      ) as Map<String, dynamic>;
       String pick(String key, String current) =>
           current.isNotEmpty ? current : (map[key] as String? ?? '');
       supabaseUrl = pick('SUPABASE_URL', supabaseUrl);
-      supabasePublishableKey =
-          pick('SUPABASE_PUBLISHABLE_KEY', supabasePublishableKey);
+      supabasePublishableKey = pick(
+        'SUPABASE_PUBLISHABLE_KEY',
+        supabasePublishableKey,
+      );
       mapboxToken = pick('MAPBOX_ACCESS_TOKEN', mapboxToken);
     } catch (_) {
       // Asset assente o non valido: resta "non configurato".

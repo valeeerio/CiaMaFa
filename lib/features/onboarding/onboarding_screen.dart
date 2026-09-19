@@ -33,7 +33,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
 
   void _submit() {
     FocusScope.of(context).unfocus();
-    ref.read(onboardingControllerProvider.notifier).submit(
+    ref
+        .read(onboardingControllerProvider.notifier)
+        .submit(
           nickname: _controller.text,
           notificationsEnabled: _notifications,
         );
@@ -47,9 +49,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
     final errorText = switch (error) {
       null => null,
       NicknameTakenException() => '😬 Nickname già in uso',
-      _ => kDebugMode
-          ? 'Ops, qualcosa non va: $error'
-          : 'Ops, qualcosa non va. Riprova.',
+      _ =>
+        kDebugMode
+            ? 'Ops, qualcosa non va: $error'
+            : 'Ops, qualcosa non va. Riprova.',
     };
     final theme = Theme.of(context).textTheme;
 
@@ -116,8 +119,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               const SizedBox(height: 16),
               SwitchListTile(
                 value: _notifications,
-                onChanged:
-                    loading ? null : (v) => setState(() => _notifications = v),
+                onChanged: loading
+                    ? null
+                    : (v) => setState(() => _notifications = v),
                 activeThumbColor: AppColors.nightBlue,
                 activeTrackColor: AppColors.acidGreen,
                 contentPadding: EdgeInsets.zero,
@@ -151,7 +155,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                     : const Text(
                         'Entra nel gruppo 🎉',
                         style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w700),
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
               ),
             ],
