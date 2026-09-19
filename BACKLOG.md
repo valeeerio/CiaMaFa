@@ -6,10 +6,10 @@ Riferimento UX: `docs/ciamafa-design-reference.md`. Ogni fase verrà dettagliata
   Progetto Flutter, struttura cartelle, tema, migrazioni Supabase (schema, scadenza a mezzanotte, RLS, seed gruppo), CLAUDE.md.
 - [x] **Fase 1: Onboarding**
   Anonymous sign-in, nickname univoco nel gruppo, toggle notifiche, join al gruppo unico.
-- [ ] **Fase 2: Home**
+- [x] **Fase 2: Home**
   5 attività fisse: Bar, Bombolone, Posto Chill, Mangiare, "Bho, vediamoci e decidiamo". Header con avatar (Profilo) e pillola Impegni.
 - [ ] **Fase 3: Scelta del posto**
-  Preset auto-alimentati per attività/gruppo (`place_activity_stats`) + ricerca e mappa Mapbox (Search Box API).
+  Preset auto-alimentati per attività/gruppo (`place_activity_stats`) + ricerca Photon e mappa flutter_map/OSM (al posto di Mapbox). Statistiche e riga `places` scritte al lancio (Fase 4).
 - [ ] **Fase 4: Lancio piano + notifica push simulata/reale**
   Creazione del piano, schermata "Piano lanciato!", banner di notifica in-app simulato.
 - [ ] **Fase 5: Piani di oggi + Dettaglio proposta + voti**

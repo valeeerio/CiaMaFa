@@ -5,7 +5,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../features/home/home_screen.dart';
 import '../features/onboarding/onboarding_provider.dart';
 import '../features/onboarding/onboarding_screen.dart';
-import '../features/plans/activity.dart';
+import '../features/places/places_screen.dart';
 import '../shared/placeholder_screen.dart';
 
 part 'router.g.dart';
@@ -38,12 +38,17 @@ GoRouter router(Ref ref) {
         builder: (context, state) => const OnboardingScreen(),
       ),
       GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
-      // Segnaposto: scelta del posto (Fase 3), piani di oggi (Fase 5), profilo (Fase 7).
       GoRoute(
         path: '/places/:activityId',
-        builder: (context, state) => PlaceholderScreen(
-          title: activityById(state.pathParameters['activityId']!).label,
-          subtitle: 'Scelta del posto: Fase 3',
+        builder: (context, state) =>
+            PlacesScreen(activityId: state.pathParameters['activityId']!),
+      ),
+      // Segnaposto: piano lanciato (Fase 4), piani di oggi (Fase 5), profilo (Fase 7).
+      GoRoute(
+        path: '/launched',
+        builder: (context, state) => const PlaceholderScreen(
+          title: 'Piano lanciato!',
+          subtitle: 'Fase 4',
         ),
       ),
       GoRoute(

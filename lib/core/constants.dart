@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
-/// Configurazione (Supabase, Mapbox). Mai committata.
+/// Configurazione (Supabase). Mai committata.
 ///
 /// Priorità: `--dart-define` / `--dart-define-from-file`, poi l'asset
 /// `env.json` (gitignored, copia di `env.example.json`).
@@ -11,16 +11,16 @@ abstract final class Env {
   static String supabasePublishableKey = const String.fromEnvironment(
     'SUPABASE_PUBLISHABLE_KEY',
   );
-  static String mapboxToken = const String.fromEnvironment(
-    'MAPBOX_ACCESS_TOKEN',
-  );
+
+  /// Chiave gratuita CARTO (carto.com/basemaps/apikey). Opzionale: senza, la
+  /// mappa usa i tile OpenStreetMap standard.
+  static String cartoApiKey = const String.fromEnvironment('CARTO_API_KEY');
 
   static bool get isSupabaseConfigured =>
       supabaseUrl.isNotEmpty && supabasePublishableKey.isNotEmpty;
 
   /// Completa i valori mancanti leggendo l'asset `env.json`.
   static Future<void> load() async {
-    if (isSupabaseConfigured) return;
     try {
       final map = jsonDecode(
         await rootBundle.loadString('env.json'),
@@ -32,7 +32,7 @@ abstract final class Env {
         'SUPABASE_PUBLISHABLE_KEY',
         supabasePublishableKey,
       );
-      mapboxToken = pick('MAPBOX_ACCESS_TOKEN', mapboxToken);
+      cartoApiKey = pick('CARTO_API_KEY', cartoApiKey);
     } catch (_) {
       // Asset assente o non valido: resta "non configurato".
     }

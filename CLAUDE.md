@@ -1,7 +1,7 @@
 # CiaMaFa
 
 App Flutter (iOS/Android) per proporre attività di gruppo a una cerchia chiusa di amici.
-Stack: Flutter + Riverpod (riverpod_generator) + go_router + Supabase (Postgres/Auth/Realtime) + Mapbox.
+Stack: Flutter + Riverpod (riverpod_generator) + go_router + Supabase (Postgres/Auth/Realtime) + flutter_map (tile CARTO Voyager, fallback OSM) + Photon (ricerca luoghi, gratuita, senza chiave).
 
 ## Riferimenti
 - Fasi e stato del lavoro: `BACKLOG.md`
@@ -18,7 +18,7 @@ Stack: Flutter + Riverpod (riverpod_generator) + go_router + Supabase (Postgres/
 ## Convenzioni di codice
 - Struttura `lib/`: `core/` (theme, router, supabase client, costanti), `features/<feature>/`, `shared/` (widget riusabili).
 - Provider Riverpod in file `*_provider.dart` (con `riverpod_generator`); un file provider per feature come punto di partenza.
-- Config (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, `MAPBOX_ACCESS_TOKEN`) in `env.json` (gitignored, da `env.example.json`), letto come asset da `Env.load()`; `--dart-define` ha la precedenza. Mai committata.
+- Config (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, opzionale `CARTO_API_KEY` per i tile Voyager) in `env.json` (gitignored, da `env.example.json`), letto come asset da `Env.load()`; `--dart-define` ha la precedenza. Mai committata.
 - Test con `flutter_test` + `mocktail`, in `test/` con struttura speculare a `lib/`.
 
 ## Comandi
