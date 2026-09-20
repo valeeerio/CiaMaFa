@@ -1,11 +1,14 @@
 import 'package:ciamafa/features/places/place_candidate.dart';
 import 'package:ciamafa/features/places/place_search_repository.dart';
+import 'package:ciamafa/features/places/place_suggestions_repository.dart';
 import 'package:ciamafa/features/places/places_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 class MockSearchRepo extends Mock implements PlaceSearchRepository {}
+
+class MockSuggestionsRepo extends Mock implements PlaceSuggestionsRepository {}
 
 const _bar = PlaceCandidate(name: 'Bar Centrale', lat: 41, lng: 16);
 
@@ -65,4 +68,31 @@ void main() {
     container.read(placeSelectionProvider.notifier).select(_bar);
     expect(container.read(placeSelectionProvider), _bar);
   });
+
+  test(
+    'suggestedPlaces passes through ALL presets in the server order',
+    () async {
+      final repo = MockSuggestionsRepo();
+      final many = [
+        for (var i = 0; i < 12; i++)
+          PlaceCandidate(
+            name: 'P$i',
+            lat: 41 + i / 100,
+            lng: 16,
+            timesUsed: 12 - i,
+          ),
+      ];
+      when(() => repo.presetsFor('bar')).thenAnswer((_) async => many);
+      final c = ProviderContainer(
+        overrides: [placeSuggestionsRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(c.dispose);
+
+      final got = await c.read(suggestedPlacesProvider('bar').future);
+      expect(got.map((p) => p.name), [
+        for (final p in many) p.name,
+      ]); // 12, stesso ordine
+      verify(() => repo.presetsFor('bar')).called(1);
+    },
+  );
 }

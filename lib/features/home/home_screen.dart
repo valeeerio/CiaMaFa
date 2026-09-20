@@ -65,7 +65,8 @@ class HomeScreen extends ConsumerWidget {
             for (final activity in activities) ...[
               ActivityButton(
                 activity: activity,
-                onTap: () => context.push('/places/${activity.id}'),
+                onTap: (origin) =>
+                    context.push('/places/${activity.id}', extra: origin),
               ),
               const SizedBox(height: 18),
             ],

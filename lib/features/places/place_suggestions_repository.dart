@@ -3,11 +3,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'place_candidate.dart';
 
 abstract interface class PlaceSuggestionsRepository {
-  /// Luoghi più usati dal gruppo per l'attività (max [limit]).
-  Future<List<PlaceCandidate>> topForActivity(
-    String activityId, {
-    int limit = 8,
-  });
+  /// Preset dell'attività, GIÀ ORDINATI dal server: più scelti (piani lanciati
+  /// + adesioni), poi più recenti, poi più vicini al centro del gruppo.
+  /// Sono quelli scelti a mano (curati) o lanciati almeno 2 volte.
+  Future<List<PlaceCandidate>> presetsFor(String activityId);
 }
 
 class SupabasePlaceSuggestionsRepository implements PlaceSuggestionsRepository {
@@ -16,29 +15,15 @@ class SupabasePlaceSuggestionsRepository implements PlaceSuggestionsRepository {
   final SupabaseClient _client;
 
   @override
-  Future<List<PlaceCandidate>> topForActivity(
-    String activityId, {
-    int limit = 8,
-  }) async {
-    // Il filtro per gruppo lo applica la RLS di place_activity_stats.
-    final rows = await _client
-        .from('place_activity_stats')
-        .select('times_used, last_used_at, places(*)')
-        .eq('activity_id', activityId)
-        .order('times_used', ascending: false)
-        .order('last_used_at', ascending: false)
-        .limit(limit);
+  Future<List<PlaceCandidate>> presetsFor(String activityId) async {
+    // La funzione è `security invoker`: il filtro per gruppo lo applica la RLS.
+    final rows = await _client.rpc<List<dynamic>>(
+      'activity_presets',
+      params: {'p_activity_id': activityId},
+    );
     return [
       for (final row in rows)
-        if (row['places'] case final Map<String, dynamic> p)
-          PlaceCandidate(
-            name: p['name'] as String,
-            address: p['address'] as String?,
-            lat: (p['lat'] as num).toDouble(),
-            lng: (p['lng'] as num).toDouble(),
-            externalSource: p['external_source'] as String?,
-            externalId: p['external_id'] as String?,
-          ),
+        PlaceCandidate.fromPresetRow(row as Map<String, dynamic>),
     ];
   }
 }

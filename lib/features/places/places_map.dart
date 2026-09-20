@@ -1,14 +1,20 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
 import '../../core/constants.dart';
+import '../../core/motion.dart';
 import '../../core/theme.dart';
 import '../../shared/map_pin.dart';
+import '../../shared/staggered_entrance.dart';
 import 'map_style.dart';
 import 'place_candidate.dart';
+import 'place_clusters.dart';
 
-/// Mappa con i pin dei preset e del luogo selezionato (con etichetta).
+/// Mappa con i preset (pin, o cerchi col numero quando si sovrapporrebbero) e il
+/// luogo selezionato (atterraggio morbido, onda e etichetta).
 ///
 /// Con `CARTO_API_KEY`: tile CARTO, chiari (crema) o scuri (blu notte) secondo
 /// la modalità del dispositivo. Senza chiave: OpenStreetMap standard.
@@ -19,8 +25,10 @@ class PlacesMap extends StatelessWidget {
     required this.initialCenter,
     required this.presets,
     required this.selected,
+    required this.emoji,
     required this.onTapPoint,
     required this.onTapPlace,
+    required this.onTapCluster,
     required this.onCenterChanged,
   });
 
@@ -28,52 +36,29 @@ class PlacesMap extends StatelessWidget {
   final LatLng initialCenter;
   final List<PlaceCandidate> presets;
   final PlaceCandidate? selected;
+  final String emoji;
   final ValueChanged<LatLng> onTapPoint;
   final ValueChanged<PlaceCandidate> onTapPlace;
+  final ValueChanged<List<PlaceCandidate>> onTapCluster;
   final ValueChanged<LatLng> onCenterChanged;
 
-  Marker _preset(PlaceCandidate p) => Marker(
+  static String _id(PlaceCandidate p) => '${p.lat},${p.lng}';
+
+  Marker _ripple(PlaceCandidate p) => Marker(
+    key: ValueKey('ripple:${_id(p)}'),
     point: p.point,
-    width: 40,
-    height: 40,
-    alignment: Alignment.topCenter,
-    child: GestureDetector(
-      onTap: () => onTapPlace(p),
-      child: const MapPin(selected: false),
-    ),
+    width: 120,
+    height: 120,
+    child: const IgnorePointer(child: _RippleRing()),
   );
 
   Marker _selected(PlaceCandidate p) => Marker(
+    key: ValueKey('selected:${_id(p)}'),
     point: p.point,
     width: 200,
-    height: 84,
+    height: 96,
     alignment: Alignment.topCenter,
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-          decoration: BoxDecoration(
-            color: AppColors.white,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: const [
-              BoxShadow(color: Color(0x33000000), blurRadius: 6),
-            ],
-          ),
-          child: Text(
-            p.name,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppColors.nightBlue,
-            ),
-          ),
-        ),
-        const MapPin(selected: true),
-      ],
-    ),
+    child: _SelectedPin(place: p, emoji: emoji),
   );
 
   @override
@@ -94,29 +79,290 @@ class PlacesMap extends StatelessWidget {
       options: MapOptions(
         initialCenter: initialCenter,
         initialZoom: 15,
+        minZoom: 3,
+        maxZoom: 19,
         onTap: (_, point) => onTapPoint(point),
         onPositionChanged: (camera, _) => onCenterChanged(camera.center),
       ),
       children: [
         carto ? ColorFiltered(colorFilter: style.filter, child: tiles) : tiles,
-        MarkerLayer(
-          markers: [
+        _PresetLayer(
+          presets: [
             for (final p in presets)
-              if (p != selected) _preset(p),
-            if (selected != null) _selected(selected!),
+              if (p != selected) p,
           ],
+          emoji: emoji,
+          onTapPlace: onTapPlace,
+          onTapCluster: onTapCluster,
         ),
-        RichAttributionWidget(
-          alignment: AttributionAlignment.bottomLeft,
-          attributions: [
-            TextSourceAttribution(
-              carto
-                  ? '© OpenStreetMap contributors, © CARTO'
-                  : '© OpenStreetMap contributors',
-            ),
-          ],
-        ),
+        if (selected != null)
+          MarkerLayer(markers: [_ripple(selected!), _selected(selected!)]),
       ],
     );
   }
+}
+
+/// Preset: un pin per luogo; quelli che a questo zoom si sovrapporrebbero
+/// diventano un cerchio col numero (si ricalcola a ogni movimento di camera).
+class _PresetLayer extends StatelessWidget {
+  const _PresetLayer({
+    required this.presets,
+    required this.emoji,
+    required this.onTapPlace,
+    required this.onTapCluster,
+  });
+
+  final List<PlaceCandidate> presets;
+  final String emoji;
+  final ValueChanged<PlaceCandidate> onTapPlace;
+  final ValueChanged<List<PlaceCandidate>> onTapCluster;
+
+  @override
+  Widget build(BuildContext context) {
+    final camera = MapCamera.of(context);
+    final clusters = clusterPlaces(presets, camera.latLngToScreenOffset);
+    return MarkerLayer(
+      markers: [
+        for (final (i, c) in clusters.indexed)
+          if (c.isSingle)
+            Marker(
+              key: ValueKey('preset:${c.id}'),
+              point: c.center,
+              width: MapPin.presetSize.width,
+              height: MapPin.presetSize.height,
+              alignment: Alignment.topCenter,
+              child: StaggeredEntrance(
+                index: i,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onTapPlace(c.places.first),
+                  child: MapPin(selected: false, emoji: emoji),
+                ),
+              ),
+            )
+          else
+            Marker(
+              key: ValueKey('cluster:${c.id}'),
+              point: c.center,
+              width: _ClusterBubble.size,
+              height: _ClusterBubble.size,
+              child: StaggeredEntrance(
+                index: i,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: () => onTapCluster(c.places),
+                  child: _ClusterBubble(count: c.places.length),
+                ),
+              ),
+            ),
+      ],
+    );
+  }
+}
+
+/// Cerchio col numero di luoghi raggruppati (stesso stile dei pin: verde acido,
+/// bordo bianco, ombra piena scura).
+class _ClusterBubble extends StatelessWidget {
+  const _ClusterBubble({required this.count});
+
+  final int count;
+
+  static const size = 46.0;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.acidGreen,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.white, width: 4),
+        boxShadow: const [
+          BoxShadow(color: AppColors.acidGreenShadow, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Center(
+        child: Text(
+          '$count',
+          style: Theme.of(context).textTheme.titleLarge
+              ?.copyWith(fontSize: 18, color: AppColors.nightBlue),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pin selezionato: "atterra" con scala e discesa morbide, poi compare l'etichetta.
+class _SelectedPin extends StatefulWidget {
+  const _SelectedPin({required this.place, required this.emoji});
+
+  final PlaceCandidate place;
+  final String emoji;
+
+  @override
+  State<_SelectedPin> createState() => _SelectedPinState();
+}
+
+class _SelectedPinState extends State<_SelectedPin>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 460),
+  );
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (Motion.reduced(context)) {
+      _c.value = 1;
+    } else {
+      _c.forward();
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final land = Motion.soft.transform(_c.value);
+        final label = const Interval(
+          0.35,
+          1,
+          curve: Curves.easeOut,
+        ).transform(_c.value);
+        return Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            Opacity(
+              opacity: label,
+              child: Transform.translate(
+                offset: Offset(0, (1 - label) * 6),
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: AppColors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: const [
+                      BoxShadow(color: Color(0x331B2A4A), offset: Offset(0, 3)),
+                    ],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    child: Text(
+                      widget.place.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.nightBlue,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Transform.translate(
+              offset: Offset(0, (1 - land) * -22),
+              child: Transform.scale(
+                scale: 0.7 + 0.3 * land,
+                alignment: Alignment.bottomCenter,
+                child: MapPin(selected: true, emoji: widget.emoji),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Onda che si espande una volta sola attorno al pin selezionato.
+class _RippleRing extends StatefulWidget {
+  const _RippleRing();
+
+  @override
+  State<_RippleRing> createState() => _RippleRingState();
+}
+
+class _RippleRingState extends State<_RippleRing>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 700),
+  );
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_started) return;
+    _started = true;
+    if (!Motion.reduced(context)) _c.forward();
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (Motion.reduced(context)) return const SizedBox.shrink();
+    return AnimatedBuilder(
+      animation: _c,
+      builder: (context, _) {
+        final t = Motion.soft.transform(_c.value);
+        return CustomPaint(
+          painter: _RipplePainter(
+            radius: 8 + 50 * t,
+            opacity: 0.6 * (1 - t),
+            color: AppColors.coral,
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _RipplePainter extends CustomPainter {
+  const _RipplePainter({
+    required this.radius,
+    required this.opacity,
+    required this.color,
+  });
+
+  final double radius;
+  final double opacity;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (opacity <= 0.01) return;
+    canvas.drawCircle(
+      size.center(Offset.zero),
+      math.min(radius, size.width / 2),
+      Paint()
+        ..color = color.withValues(alpha: opacity)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_RipplePainter old) =>
+      old.radius != radius || old.opacity != opacity || old.color != color;
 }

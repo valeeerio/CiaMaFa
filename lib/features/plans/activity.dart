@@ -11,7 +11,6 @@ class Activity {
     required this.background,
     required this.foreground,
     required this.shadow,
-    required this.placeTitle,
     required this.launchCta,
     this.dashed = false,
   });
@@ -22,9 +21,6 @@ class Activity {
   final Color background;
   final Color foreground;
   final Color shadow;
-
-  /// Titolo della schermata "Scelta del posto".
-  final String placeTitle;
 
   /// Testo della CTA di lancio.
   final String launchCta;
@@ -41,7 +37,6 @@ const activities = <Activity>[
     background: AppColors.orange,
     foreground: AppColors.nightBlue,
     shadow: AppColors.orangeShadow,
-    placeTitle: 'Dove andiamo al bar?',
     launchCta: 'Lancia Bar qui 🚀',
   ),
   Activity(
@@ -51,7 +46,6 @@ const activities = <Activity>[
     background: AppColors.coral,
     foreground: AppColors.nightBlue,
     shadow: AppColors.coralShadow,
-    placeTitle: 'Dove prendiamo il bombolone?',
     launchCta: 'Lancia Bombolone qui 🚀',
   ),
   Activity(
@@ -61,7 +55,6 @@ const activities = <Activity>[
     background: AppColors.nightBlue,
     foreground: AppColors.cream,
     shadow: AppColors.nightBlue,
-    placeTitle: 'Dove ci rilassiamo?',
     launchCta: 'Lancia Posto Chill qui 🚀',
   ),
   Activity(
@@ -71,7 +64,6 @@ const activities = <Activity>[
     background: AppColors.acidGreen,
     foreground: AppColors.nightBlue,
     shadow: AppColors.acidGreenShadow,
-    placeTitle: 'Dove mangiamo?',
     launchCta: 'Lancia Mangiare qui 🚀',
   ),
   Activity(
@@ -81,7 +73,6 @@ const activities = <Activity>[
     background: AppColors.cream,
     foreground: AppColors.nightBlue,
     shadow: AppColors.nightBlue,
-    placeTitle: 'Intanto dove ci vediamo?',
     launchCta: 'Lanciamo e decidiamo lì 🚀',
     dashed: true,
   ),

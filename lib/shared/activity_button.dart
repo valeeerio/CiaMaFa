@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../features/plans/activity.dart';
 import 'dashed_border.dart';
+import 'press_effects.dart';
+import 'route_transitions.dart';
 
 /// Pulsante grande di un'attività nella Home.
 class ActivityButton extends StatelessWidget {
@@ -14,9 +16,20 @@ class ActivityButton extends StatelessWidget {
   });
 
   final Activity activity;
-  final VoidCallback onTap;
+
+  /// Riceve il rettangolo e il colore del pulsante, per la transizione a espansione.
+  final ValueChanged<TransitionOrigin> onTap;
 
   static const _radius = 22.0;
+
+  TransitionOrigin _origin(BuildContext context) {
+    final box = context.findRenderObject()! as RenderBox;
+    return TransitionOrigin(
+      rect: box.localToGlobal(Offset.zero) & box.size,
+      color: activity.background,
+      radius: _radius,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +55,7 @@ class ActivityButton extends StatelessWidget {
       button: true,
       label: a.label,
       child: GestureDetector(
-        onTap: onTap,
+        onTap: () => onTap(_origin(context)),
         child: a.dashed
             ? CustomPaint(
                 foregroundPainter: DashedBorderPainter(
@@ -70,8 +83,9 @@ class ActivityButton extends StatelessWidget {
       ),
     );
 
+    final pressable = PressScale(scale: 0.97, child: button);
     return a.dashed
-        ? Transform.rotate(angle: -math.pi / 180, child: button)
-        : button;
+        ? Transform.rotate(angle: -math.pi / 180, child: pressable)
+        : pressable;
   }
 }

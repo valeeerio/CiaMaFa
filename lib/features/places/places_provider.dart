@@ -32,7 +32,7 @@ LocationService locationService(Ref ref) => GeolocatorLocationService();
 /// Preset per l'attività: luoghi più usati dal gruppo.
 @riverpod
 Future<List<PlaceCandidate>> suggestedPlaces(Ref ref, String activityId) =>
-    ref.watch(placeSuggestionsRepositoryProvider).topForActivity(activityId);
+    ref.watch(placeSuggestionsRepositoryProvider).presetsFor(activityId);
 
 /// Luogo scelto (in memoria fino al lancio, Fase 4).
 @riverpod

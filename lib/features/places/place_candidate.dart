@@ -9,7 +9,20 @@ class PlaceCandidate {
     this.address,
     this.externalSource,
     this.externalId,
+    this.timesUsed = 0,
   });
+
+  /// Da una riga di `activity_presets` (il server le restituisce già ordinate).
+  factory PlaceCandidate.fromPresetRow(Map<String, dynamic> row) =>
+      PlaceCandidate(
+        name: row['name'] as String,
+        address: row['address'] as String?,
+        lat: (row['lat'] as num).toDouble(),
+        lng: (row['lng'] as num).toDouble(),
+        externalSource: row['external_source'] as String?,
+        externalId: row['external_id'] as String?,
+        timesUsed: (row['times_used'] as num?)?.toInt() ?? 0,
+      );
 
   final String name;
   final String? address;
@@ -19,6 +32,10 @@ class PlaceCandidate {
   /// Es. `osm` + `node/123`: chiave di `places (external_source, external_id)`.
   final String? externalSource;
   final String? externalId;
+
+  /// Quante volte il gruppo ha lanciato un piano qui per questa attività
+  /// (solo per il contatore sul chip; l'ordine lo decide il server).
+  final int timesUsed;
 
   LatLng get point => LatLng(lat, lng);
 

@@ -7,6 +7,7 @@ import '../features/onboarding/onboarding_provider.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/places/places_screen.dart';
 import '../shared/placeholder_screen.dart';
+import '../shared/route_transitions.dart';
 
 part 'router.g.dart';
 
@@ -40,8 +41,11 @@ GoRouter router(Ref ref) {
       GoRoute(path: '/home', builder: (context, state) => const HomeScreen()),
       GoRoute(
         path: '/places/:activityId',
-        builder: (context, state) =>
-            PlacesScreen(activityId: state.pathParameters['activityId']!),
+        pageBuilder: (context, state) => expandingPage(
+          key: state.pageKey,
+          origin: state.extra as TransitionOrigin?,
+          child: PlacesScreen(activityId: state.pathParameters['activityId']!),
+        ),
       ),
       // Segnaposto: piano lanciato (Fase 4), piani di oggi (Fase 5), profilo (Fase 7).
       GoRoute(

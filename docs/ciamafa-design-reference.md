@@ -67,6 +67,12 @@ in basso, testo per attività:
 Città di riferimento demo: **Bitetto**. Luoghi demo attuali: Piazza Aldo Moro,
 Bar Centrale (Via Roma 12), Corso Vittorio Emanuele, + "La tua posizione".
 
+**Modifiche successive alla schermata Scelta del posto (sostituiscono quanto sopra dove diverso):**
+- Testata simmetrica: freccia a sinistra, titolo unico **"Dove?"** al centro (uguale per tutte le attività), spazio vuoto a destra. Niente pillola con l'attività, niente eyebrow "· adesso", niente titolo lungo per attività.
+- Mappa reale (flutter_map, tile CARTO) al posto dell'illustrazione, a blocco con cornice nel colore del pulsante toccato. Nessun badge "Anteprima mappa", nessun 🎯, nessuna attribuzione visibile (da riportare nella pagina Crediti del Profilo).
+- Tasti **+ / −** in basso a destra sulla mappa. All'apertura la mappa inquadra **tutti** i punti; i pin che si sovrapporrebbero diventano cerchi col numero (tocco = zoom).
+- Nessuna card riepilogo né testo helper: il luogo scelto si vede dall'etichetta sul pin. "La tua posizione" resta un chip che sceglie la posizione come luogo.
+
 ### 4. Piano lanciato
 Sfondo blu notte, confetti animati, icona 🎉, titolo "Piano lanciato!", riepilogo
 "Il gruppo ha ricevuto una notifica per {label} a {luogo}.". Due CTA: "Vedi piano"

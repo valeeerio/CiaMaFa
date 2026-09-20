@@ -6,14 +6,23 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../core/motion.dart';
 import '../../core/theme.dart';
+import '../../shared/dashed_border.dart';
+import '../../shared/press_effects.dart';
+import '../../shared/staggered_entrance.dart';
 import '../plans/activity.dart';
+import 'camera_animator.dart';
+import 'location_service.dart';
 import 'place_candidate.dart';
 import 'places_map.dart';
 import 'places_provider.dart';
 
 /// Centro iniziale (città del prototipo): Bitetto.
 const bitetto = LatLng(41.0414, 16.7487);
+
+/// Ombra piena morbida di ricerca, chip e card (blu notte al 12%).
+const _softShadow = BoxShadow(color: Color(0x1F1B2A4A), offset: Offset(0, 4));
 
 class PlacesScreen extends ConsumerStatefulWidget {
   const PlacesScreen({super.key, required this.activityId});
@@ -24,17 +33,72 @@ class PlacesScreen extends ConsumerStatefulWidget {
   ConsumerState<PlacesScreen> createState() => _PlacesScreenState();
 }
 
-class _PlacesScreenState extends ConsumerState<PlacesScreen> {
+class _PlacesScreenState extends ConsumerState<PlacesScreen>
+    with SingleTickerProviderStateMixin {
   final _search = TextEditingController();
   final _map = MapController();
   final _searchFocus = FocusNode();
+  final _searchLink = LayerLink();
+  late final CameraAnimator _camera = CameraAnimator(
+    vsync: this,
+    controller: _map,
+  );
   LatLng _center = bitetto;
+  bool _fitted = false;
+  bool _locating = false;
 
   @override
   void initState() {
     super.initState();
     _searchFocus.addListener(() => setState(() {}));
+    // Se i preset sono già in cache, la mappa è pronta dopo il primo frame.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _fitToPresets());
   }
+
+  /// Alla prima apertura inquadra TUTTI i preset (una sola volta, e solo se non
+  /// hai già scelto un luogo). Con punti lontani la vista è ampia: i pin vicini
+  /// si raggruppano in cerchi col numero e i tasti +/− fanno il resto.
+  void _fitToPresets() {
+    if (_fitted || !mounted) return;
+    final presets = ref.read(suggestedPlacesProvider(widget.activityId)).value;
+    if (presets == null || presets.isEmpty) return;
+    if (ref.read(placeSelectionProvider) != null) return;
+    try {
+      final reduced = Motion.reduced(context);
+      if (presets.length == 1) {
+        _camera.flyTo(presets.first.point, zoom: 16, reduced: reduced);
+      } else {
+        final fitted = CameraFit.bounds(
+          bounds: LatLngBounds.fromPoints([for (final p in presets) p.point]),
+          padding: const EdgeInsets.all(56),
+          maxZoom: 16,
+        ).fit(_map.camera);
+        _camera.flyTo(fitted.center, zoom: fitted.zoom, reduced: reduced);
+      }
+      _fitted = true;
+    } catch (_) {
+      // Mappa non ancora pronta: riprova al prossimo cambio dei preset.
+    }
+  }
+
+  /// Tocco su un cerchio: inquadra i suoi luoghi (sempre almeno un livello più
+  /// in dentro, così si separano davvero).
+  void _onTapCluster(List<PlaceCandidate> places) {
+    final camera = _map.camera;
+    final fitted = CameraFit.bounds(
+      bounds: LatLngBounds.fromPoints([for (final p in places) p.point]),
+      padding: const EdgeInsets.all(72),
+      maxZoom: 17,
+    ).fit(camera);
+    _camera.flyTo(
+      fitted.center,
+      zoom: math.max(fitted.zoom, camera.zoom + 1),
+      reduced: Motion.reduced(context),
+    );
+  }
+
+  void _zoomBy(double delta) =>
+      _camera.zoomBy(delta, reduced: Motion.reduced(context));
 
   Activity get _activity => activityById(widget.activityId);
 
@@ -42,19 +106,21 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
   void dispose() {
     _search.dispose();
     _searchFocus.dispose();
+    _camera.dispose();
     _map.dispose();
     super.dispose();
   }
 
   void _choose(PlaceCandidate place) {
     ref.read(placeSelectionProvider.notifier).select(place);
-    _map.move(place.point, math.max(_map.camera.zoom, 16));
+    _camera.flyTo(place.point, minZoom: 16, reduced: Motion.reduced(context));
   }
 
   void _pickSearchResult(PlaceCandidate place) {
     _search.clear();
     ref.read(placeSearchProvider.notifier).clear();
     FocusScope.of(context).unfocus();
+    setState(() {});
     _choose(place);
   }
 
@@ -87,68 +153,77 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
     }
   }
 
+  /// Chip "La tua posizione": cerca la posizione dell'utente e, se la trova,
+  /// la sceglie come luogo (pin + volo della camera). Se no, dice perché.
   Future<void> _locate() async {
-    final pos = await ref.read(locationServiceProvider).currentPosition();
+    if (_locating) return; // un tocco alla volta
+    setState(() => _locating = true);
+    final result = await ref.read(locationServiceProvider).locate();
     if (!mounted) return;
-    if (pos == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Non riesco a trovarti: controlla i permessi di posizione.',
+    setState(() => _locating = false);
+    switch (result) {
+      case LocationFound(:final point):
+        _choose(
+          PlaceCandidate(
+            name: 'La tua posizione',
+            lat: point.latitude,
+            lng: point.longitude,
           ),
-        ),
-      );
-      return;
+        );
+      case LocationFailure(:final reason):
+        _showLocationError(reason);
     }
-    _choose(
-      PlaceCandidate(
-        name: 'La tua posizione',
-        lat: pos.latitude,
-        lng: pos.longitude,
+  }
+
+  void _showLocationError(LocationFailureReason reason) {
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(reason.message),
+        action: SnackBarAction(
+          label: reason.needsSettings ? 'Impostazioni' : 'Riprova',
+          onPressed: reason.needsSettings
+              ? () => ref.read(locationServiceProvider).openSettings(reason)
+              : _locate,
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
     final selected = ref.watch(placeSelectionProvider);
     final presets =
         ref.watch(suggestedPlacesProvider(widget.activityId)).value ?? const [];
     final search = ref.watch(placeSearchProvider);
     final searching = _search.text.trim().length >= searchMinChars;
-    final showTitle = _search.text.isEmpty && !_searchFocus.hasFocus;
+    final a = _activity;
+
+    ref.listen(suggestedPlacesProvider(widget.activityId), (_, next) {
+      if (next.hasValue) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _fitToPresets());
+      }
+    });
 
     return Scaffold(
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: PlacesMap(
-              controller: _map,
-              initialCenter: bitetto,
-              presets: presets,
-              selected: selected,
-              onTapPoint: _onMapTap,
-              onTapPlace: _choose,
-              onCenterChanged: (c) => _center = c,
-            ),
-          ),
-          // In alto: pillola di ricerca + chip / risultati, sopra la mappa.
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topCenter,
+      // La tastiera copre mappa e CTA invece di schiacciare la pagina.
+      resizeToAvoidBottomInset: false,
+      body: SafeArea(
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                    child: _SearchPill(
+                  _Header(onBack: () => context.pop()),
+                  const SizedBox(height: 14),
+                  CompositedTransformTarget(
+                    link: _searchLink,
+                    child: _SearchBar(
                       controller: _search,
                       focusNode: _searchFocus,
-                      eyebrow: '${_activity.emoji} ${_activity.label} · adesso',
-                      title: _activity.placeTitle,
-                      showTitle: showTitle,
-                      onBack: () => context.pop(),
                       onChanged: (v) {
                         setState(() {});
                         ref
@@ -162,244 +237,314 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen> {
                       },
                     ),
                   ),
-                  if (searching)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-                      child: _SearchResults(
-                        state: search,
-                        onPick: _pickSearchResult,
-                      ),
-                    )
-                  else
-                    SizedBox(
-                      height: 52,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-                        children: [
-                          _PlaceChip(
-                            label: '📍 La tua posizione',
-                            selected: false,
-                            onTap: _locate,
+                  SizedBox(
+                    height: 56,
+                    child: ListView(
+                      scrollDirection: Axis.horizontal,
+                      clipBehavior: Clip.none,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      children: [
+                        _chip(
+                          0,
+                          'La tua posizione',
+                          false,
+                          _locate,
+                          emoji: '📍',
+                          loading: _locating,
+                          keyId: '📍 La tua posizione',
+                        ),
+                        for (var i = 0; i < presets.length; i++)
+                          _chip(
+                            i + 1,
+                            presets[i].name,
+                            presets[i] == selected,
+                            () => _choose(presets[i]),
+                            timesUsed: presets[i].timesUsed,
                           ),
-                          for (final p in presets)
-                            _PlaceChip(
-                              label: p.name,
-                              selected: p == selected,
-                              onTap: () => _choose(p),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: _MapFrame(
+                      activity: a,
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: PlacesMap(
+                              controller: _map,
+                              initialCenter: bitetto,
+                              presets: presets,
+                              selected: selected,
+                              emoji: a.emoji,
+                              onTapPoint: _onMapTap,
+                              onTapPlace: _choose,
+                              onTapCluster: _onTapCluster,
+                              onCenterChanged: (c) => _center = c,
                             ),
+                          ),
+                          Positioned(
+                            right: 12,
+                            bottom: 12,
+                            child: _ZoomButtons(
+                              onZoomIn: () => _zoomBy(1),
+                              onZoomOut: () => _zoomBy(-1),
+                            ),
+                          ),
                         ],
                       ),
                     ),
+                  ),
+                  const SizedBox(height: 18),
+                  _LaunchButton(
+                    label: a.launchCta,
+                    enabled: selected != null,
+                    onPressed: () => context.push('/launched'),
+                  ),
                 ],
               ),
             ),
-          ),
-          // In basso: 🎯 e pannello con luogo scelto + CTA.
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 16, bottom: 12),
-                  child: FloatingActionButton.small(
-                    heroTag: null,
-                    tooltip: 'La tua posizione',
-                    backgroundColor: AppColors.white,
-                    foregroundColor: AppColors.nightBlue,
-                    onPressed: _locate,
-                    child: const Text('🎯'),
+            // Risultati di ricerca: sopra a tutto, sotto la barra.
+            if (searching)
+              Positioned(
+                left: 24,
+                right: 24,
+                top: 0,
+                child: CompositedTransformFollower(
+                  link: _searchLink,
+                  showWhenUnlinked: false,
+                  targetAnchor: Alignment.bottomLeft,
+                  followerAnchor: Alignment.topLeft,
+                  offset: const Offset(0, 8),
+                  child: _SearchResults(
+                    state: search,
+                    onPick: _pickSearchResult,
                   ),
                 ),
-                _BottomPanel(
-                  selected: selected,
-                  ctaLabel: _activity.launchCta,
-                  onLaunch: () => context.push('/launched'),
-                  textTheme: text,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SearchPill extends StatelessWidget {
-  const _SearchPill({
-    required this.controller,
-    required this.focusNode,
-    required this.eyebrow,
-    required this.title,
-    required this.showTitle,
-    required this.onBack,
-    required this.onChanged,
-    required this.onClear,
-  });
-
-  final TextEditingController controller;
-  final FocusNode focusNode;
-  final String eyebrow;
-  final String title;
-  final bool showTitle;
-  final VoidCallback onBack;
-  final ValueChanged<String> onChanged;
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = Theme.of(context).textTheme;
-    return Material(
-      elevation: 6,
-      shadowColor: const Color(0x66000000),
-      color: AppColors.white,
-      borderRadius: BorderRadius.circular(30),
-      child: SizedBox(
-        height: 60,
-        child: Row(
-          children: [
-            IconButton(
-              tooltip: 'Indietro',
-              icon: const Icon(Icons.arrow_back),
-              onPressed: onBack,
-            ),
-            Expanded(
-              child: Stack(
-                alignment: Alignment.centerLeft,
-                children: [
-                  TextField(
-                    controller: controller,
-                    focusNode: focusNode,
-                    textInputAction: TextInputAction.search,
-                    onChanged: onChanged,
-                    decoration: const InputDecoration(
-                      hintText: 'Cerca un locale, indirizzo, piazza…',
-                      border: InputBorder.none,
-                    ),
-                  ),
-                  if (showTitle)
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: ColoredBox(
-                          color: AppColors.white,
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                eyebrow,
-                                style: text.labelSmall?.copyWith(
-                                  color: AppColors.coralText,
-                                ),
-                              ),
-                              Text(title, style: text.titleMedium),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            if (controller.text.isNotEmpty)
-              IconButton(
-                tooltip: 'Cancella',
-                icon: const Icon(Icons.close),
-                onPressed: onClear,
-              )
-            else
-              const Padding(
-                padding: EdgeInsets.only(right: 16),
-                child: Icon(Icons.search, color: AppColors.muted),
               ),
           ],
         ),
       ),
     );
   }
+
+  Widget _chip(
+    int index,
+    String label,
+    bool selected,
+    VoidCallback onTap, {
+    int timesUsed = 0,
+    String? emoji,
+    bool loading = false,
+    String? keyId,
+  }) {
+    return StaggeredEntrance(
+      index: index,
+      step: const Duration(milliseconds: 30),
+      offset: const Offset(-12, 0),
+      fromScale: 0.9,
+      child: _PlaceChip(
+        label: label,
+        selected: selected,
+        dashed: index == 0, // "La tua posizione": tratteggio, come Bho
+        timesUsed: timesUsed,
+        emoji: emoji,
+        loading: loading,
+        keyId: keyId,
+        onTap: onTap,
+      ),
+    );
+  }
 }
 
-class _BottomPanel extends StatelessWidget {
-  const _BottomPanel({
-    required this.selected,
-    required this.ctaLabel,
-    required this.onLaunch,
-    required this.textTheme,
-  });
+/// Testata simmetrica: freccia a sinistra, "Dove?" al centro, spazio vuoto a
+/// destra della stessa larghezza della freccia.
+class _Header extends StatelessWidget {
+  const _Header({required this.onBack});
 
-  final PlaceCandidate? selected;
-  final String ctaLabel;
-  final VoidCallback onLaunch;
-  final TextTheme textTheme;
+  final VoidCallback onBack;
+
+  static const _side = 44.0;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      decoration: const BoxDecoration(
+    return Row(
+      children: [
+        Semantics(
+          button: true,
+          label: 'Indietro',
+          child: PressScale(
+            child: GestureDetector(
+              onTap: onBack,
+              behavior: HitTestBehavior.opaque,
+              child: const CircleAvatar(
+                radius: _side / 2,
+                backgroundColor: AppColors.nightBlue,
+                child: Icon(Icons.arrow_back, color: AppColors.cream, size: 20),
+              ),
+            ),
+          ),
+        ),
+        Expanded(
+          child: Semantics(
+            header: true,
+            child: Text(
+              'Dove?',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineLarge,
+            ),
+          ),
+        ),
+        const SizedBox(width: _side),
+      ],
+    );
+  }
+}
+
+/// Barra di ricerca: bianca, raggio 22, ombra piena morbida.
+class _SearchBar extends StatelessWidget {
+  const _SearchBar({
+    required this.controller,
+    required this.focusNode,
+    required this.onChanged,
+    required this.onClear,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final ValueChanged<String> onChanged;
+  final VoidCallback onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return DecoratedBox(
+      decoration: BoxDecoration(
         color: AppColors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
-        boxShadow: [BoxShadow(color: Color(0x33000000), blurRadius: 16)],
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [_softShadow],
       ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(24, 10, 24, 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: const Color(0x33000000),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
+      child: TextField(
+        controller: controller,
+        focusNode: focusNode,
+        textInputAction: TextInputAction.search,
+        onChanged: onChanged,
+        style: const TextStyle(
+          color: AppColors.nightBlue,
+          fontWeight: FontWeight.w500,
+        ),
+        decoration: InputDecoration(
+          hintText: 'Cerca un locale, indirizzo, piazza…',
+          hintStyle: const TextStyle(color: AppColors.muted),
+          prefixIcon: const Icon(Icons.search, color: AppColors.muted),
+          suffixIcon: controller.text.isEmpty
+              ? null
+              : IconButton(
+                  tooltip: 'Cancella',
+                  icon: const Icon(Icons.close, color: AppColors.muted),
+                  onPressed: onClear,
                 ),
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+      ),
+    );
+  }
+}
+
+/// La mappa come blocco della Home: cornice nel colore del pulsante toccato,
+/// con la sua ombra piena. Bho: cornice crema con bordo tratteggiato.
+class _MapFrame extends StatelessWidget {
+  const _MapFrame({required this.activity, required this.child});
+
+  final Activity activity;
+  final Widget child;
+
+  static const _radius = 26.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final a = activity;
+    final frame = DecoratedBox(
+      decoration: BoxDecoration(
+        color: a.background,
+        borderRadius: BorderRadius.circular(_radius),
+        boxShadow: a.dashed
+            ? null
+            : [BoxShadow(color: a.shadow, offset: const Offset(0, 5))],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(6),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(_radius - 6),
+          child: child,
+        ),
+      ),
+    );
+    return a.dashed
+        ? CustomPaint(
+            foregroundPainter: DashedBorderPainter(
+              color: a.foreground,
+              radius: _radius,
+            ),
+            child: frame,
+          )
+        : frame;
+  }
+}
+
+/// Tasti + e − sulla mappa: cerchi bianchi con ombra piena morbida.
+class _ZoomButtons extends StatelessWidget {
+  const _ZoomButtons({required this.onZoomIn, required this.onZoomOut});
+
+  final VoidCallback onZoomIn;
+  final VoidCallback onZoomOut;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _MapButton(icon: Icons.add, tooltip: 'Ingrandisci', onTap: onZoomIn),
+        const SizedBox(height: 10),
+        _MapButton(icon: Icons.remove, tooltip: 'Riduci', onTap: onZoomOut),
+      ],
+    );
+  }
+}
+
+class _MapButton extends StatelessWidget {
+  const _MapButton({
+    required this.icon,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: tooltip,
+      child: PressScale(
+        child: Tooltip(
+          message: tooltip,
+          child: GestureDetector(
+            onTap: onTap,
+            behavior: HitTestBehavior.opaque,
+            child: DecoratedBox(
+              decoration: const BoxDecoration(
+                color: AppColors.white,
+                shape: BoxShape.circle,
+                boxShadow: [_softShadow],
               ),
-              const SizedBox(height: 14),
-              if (selected != null) ...[
-                Text(selected!.name, style: textTheme.titleMedium),
-                if (selected!.address != null)
-                  Text(
-                    selected!.address!,
-                    style: textTheme.bodySmall?.copyWith(
-                      color: AppColors.muted,
-                    ),
-                  ),
-              ] else
-                Text(
-                  'Tocca un punto sulla mappa per spostare il pin 📍',
-                  style: textTheme.bodySmall?.copyWith(color: AppColors.muted),
-                ),
-              const SizedBox(height: 14),
-              FilledButton(
-                onPressed: selected == null ? null : onLaunch,
-                style: FilledButton.styleFrom(
-                  backgroundColor: AppColors.orange,
-                  foregroundColor: AppColors.nightBlue,
-                  disabledBackgroundColor: AppColors.muted,
-                  padding: const EdgeInsets.symmetric(vertical: 18),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                ),
-                child: Text(
-                  ctaLabel,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
+              child: SizedBox(
+                width: 44,
+                height: 44,
+                child: Icon(icon, color: AppColors.nightBlue),
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -407,43 +552,213 @@ class _BottomPanel extends StatelessWidget {
   }
 }
 
+/// CTA come un pulsante della Home: arancione, raggio 22, ombra piena che
+/// affonda alla pressione. Il razzo dondola una volta quando si attiva.
+class _LaunchButton extends StatelessWidget {
+  const _LaunchButton({
+    required this.label,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return SolidPress(
+      shadowColor: AppColors.orangeShadow,
+      enabled: enabled,
+      radius: 22,
+      child: SizedBox(
+        width: double.infinity,
+        child: FilledButton(
+          onPressed: enabled ? onPressed : null,
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.orange,
+            foregroundColor: AppColors.nightBlue,
+            disabledBackgroundColor: AppColors.muted,
+            disabledForegroundColor: AppColors.cream,
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(22),
+            ),
+          ),
+          child: _CtaLabel(label: label, active: enabled),
+        ),
+      ),
+    );
+  }
+}
+
+/// Testo della CTA con l'emoji finale che dondola una volta quando si attiva.
+class _CtaLabel extends StatefulWidget {
+  const _CtaLabel({required this.label, required this.active});
+
+  final String label;
+  final bool active;
+
+  @override
+  State<_CtaLabel> createState() => _CtaLabelState();
+}
+
+class _CtaLabelState extends State<_CtaLabel>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 650),
+  );
+
+  @override
+  void didUpdateWidget(_CtaLabel old) {
+    super.didUpdateWidget(old);
+    if (widget.active && !old.active && !Motion.reduced(context)) {
+      _c.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // "Lancia Bar qui 🚀" → testo + emoji finale.
+    final i = widget.label.lastIndexOf(' ');
+    final text = i < 0 ? widget.label : widget.label.substring(0, i);
+    final emoji = i < 0 ? '' : widget.label.substring(i + 1);
+    final style = Theme.of(context).textTheme.titleLarge
+        ?.copyWith(fontSize: 20);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Flexible(
+          child: Text(text, style: style, textAlign: TextAlign.center),
+        ),
+        if (emoji.isNotEmpty) ...[
+          const SizedBox(width: 8),
+          AnimatedBuilder(
+            animation: _c,
+            builder: (context, child) => Transform.rotate(
+              angle: 0.4 * math.sin(_c.value * math.pi * 3) * (1 - _c.value),
+              child: child,
+            ),
+            child: Text(emoji, style: style),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Chip a pillola come "📅 Impegni": il selezionato è blu notte.
+/// "La tua posizione": crema con bordo tratteggiato, come Bho.
 class _PlaceChip extends StatelessWidget {
   const _PlaceChip({
     required this.label,
     required this.selected,
     required this.onTap,
+    this.dashed = false,
+    this.timesUsed = 0,
+    this.emoji,
+    this.loading = false,
+    this.keyId,
   });
 
   final String label;
   final bool selected;
+  final bool dashed;
   final VoidCallback onTap;
+
+  /// Emoji davanti al testo (es. 📍); con [loading] diventa una rotellina.
+  final String? emoji;
+  final bool loading;
+
+  /// Chiave del chip se diversa dal [label] (resta stabile mentre carica).
+  final String? keyId;
+
+  /// Se > 0 compare un piccolo "×N" (quante volte è stato scelto).
+  final int timesUsed;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: Material(
-        key: ValueKey('chip:$label'),
-        elevation: 3,
-        shadowColor: const Color(0x55000000),
-        color: selected ? AppColors.nightBlue : AppColors.white,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          borderRadius: BorderRadius.circular(20),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            child: Center(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                  color: selected ? AppColors.cream : AppColors.nightBlue,
+    final fill = dashed
+        ? AppColors.cream
+        : (selected ? AppColors.nightBlue : AppColors.white);
+    final chip = CustomPaint(
+      foregroundPainter: dashed
+          ? const DashedBorderPainter(
+              color: AppColors.nightBlue,
+              radius: 20,
+              strokeWidth: 2,
+              dash: 6,
+              gap: 4,
+            )
+          : null,
+      child: AnimatedContainer(
+        duration: Motion.of(context, Motion.fast),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+        decoration: BoxDecoration(
+          color: fill,
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: (dashed || selected) ? null : const [_softShadow],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (loading) ...[
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: AppColors.nightBlue,
                 ),
               ),
+              const SizedBox(width: 8),
+            ] else if (emoji != null) ...[
+              Text(emoji!, style: const TextStyle(fontSize: 13)),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: selected && !dashed
+                    ? AppColors.cream
+                    : AppColors.nightBlue,
+              ),
             ),
-          ),
+            if (timesUsed > 0) ...[
+              const SizedBox(width: 6),
+              Text(
+                '×$timesUsed',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: selected && !dashed
+                      ? AppColors.acidGreen
+                      : AppColors.muted,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+    return Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: PressScale(
+        child: GestureDetector(
+          key: ValueKey('chip:${keyId ?? label}'),
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: chip,
         ),
       ),
     );
@@ -474,25 +789,45 @@ class _SearchResults extends StatelessWidget {
             )
           : Column(
               children: [
-                for (final r in results)
-                  ListTile(
-                    dense: true,
-                    title: Text(r.name),
-                    subtitle: r.address == null ? null : Text(r.address!),
-                    onTap: () => onPick(r),
+                for (var i = 0; i < results.length; i++)
+                  StaggeredEntrance(
+                    key: ValueKey('result:${results[i].lat},${results[i].lng}'),
+                    index: i,
+                    maxIndex: 5,
+                    step: const Duration(milliseconds: 30),
+                    duration: Motion.fast,
+                    offset: const Offset(0, 8),
+                    fromScale: 1,
+                    child: ListTile(
+                      dense: true,
+                      title: Text(results[i].name),
+                      subtitle: results[i].address == null
+                          ? null
+                          : Text(results[i].address!),
+                      onTap: () => onPick(results[i]),
+                    ),
                   ),
               ],
             ),
     );
-    return Material(
-      elevation: 6,
-      shadowColor: const Color(0x66000000),
-      color: AppColors.white,
-      borderRadius: BorderRadius.circular(20),
-      clipBehavior: Clip.antiAlias,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxHeight: 280),
-        child: SingleChildScrollView(child: body),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.white,
+        borderRadius: BorderRadius.circular(22),
+        boxShadow: const [
+          BoxShadow(color: Color(0x331B2A4A), offset: Offset(0, 5)),
+        ],
+      ),
+      // Material trasparente: le ListTile disegnano qui i loro effetti al tocco.
+      child: Material(
+        type: MaterialType.transparency,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 280),
+            child: SingleChildScrollView(child: body),
+          ),
+        ),
       ),
     );
   }
