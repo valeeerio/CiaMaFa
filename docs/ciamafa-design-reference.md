@@ -71,7 +71,7 @@ Bar Centrale (Via Roma 12), Corso Vittorio Emanuele, + "La tua posizione".
 - Testata simmetrica: freccia a sinistra, titolo unico **"Dove?"** al centro (uguale per tutte le attività), spazio vuoto a destra. Niente pillola con l'attività, niente eyebrow "· adesso", niente titolo lungo per attività.
 - Mappa reale (flutter_map, tile CARTO) al posto dell'illustrazione, a blocco con cornice nel colore del pulsante toccato. Nessun badge "Anteprima mappa", nessun 🎯, nessuna attribuzione visibile (da riportare nella pagina Crediti del Profilo).
 - Tasti **+ / −** in basso a destra sulla mappa. All'apertura la mappa inquadra **tutti** i punti; i pin che si sovrapporrebbero diventano cerchi col numero (tocco = zoom).
-- Nessuna card riepilogo né testo helper: il luogo scelto si vede dall'etichetta sul pin. I luoghi stanno in un foglio quasi a schermo pieno, aperto dal pulsante "☰ Luoghi · N" accanto alla ricerca (righe: nome, ×N se > 0, distanza; "La tua posizione" per prima). La posizione scelta è un puntino blu con alone e l'etichetta "Sei qui · via e civico".
+- Nessuna card riepilogo né testo helper: il luogo scelto si vede dall'etichetta sul pin. I luoghi stanno in un foglio quasi a schermo pieno, aperto dal pulsante con la sola icona di una mappa accanto alla ricerca (righe: nome, barra di popolarità e "×N · ultima volta" per i posti già scelti, medaglie 🥇🥈🥉 sui primi tre; "La tua posizione" per prima; niente chilometri). La posizione scelta è un puntino blu con alone e l'etichetta "Sei qui · via e civico".
 
 ### 4. Piano lanciato
 Sfondo blu notte, confetti animati, icona 🎉, titolo "Piano lanciato!", riepilogo
@@ -101,9 +101,12 @@ ritoccare rimuove il voto). Liste chip dei nomi votanti per sì/no (empty state
 banner "… ha annullato il piano" agli amici; poi Home con "Piano eliminato").
 
 ### 7. Profilo
-Back + titolo. Avatar + nickname corrente. Sezione modifica nickname (stesso
-pattern demo unicità di Onboarding). Sezione notifiche con toggle e nota se
-disattivate.
+Back + titolo. Avatar + nickname corrente. Sezione modifica nickname (2–20
+caratteri, univoco senza distinguere maiuscole; "😬 Nickname già in uso"). Un solo
+interruttore notifiche, con nota "Non vedrai i piani degli amici." se spento. Riga
+"Crediti" (attribuzioni OSM/CARTO e Photon, licenze open source, versione) e, in
+fondo, "Cancella il mio profilo" con conferma (elimina profilo, voti e piani
+attivi; poi onboarding).
 
 ### 8. Banner notifica push (overlay globale)
 Compare in alto, slide-down, su sfondo blu notte semitrasparente. Tap → naviga

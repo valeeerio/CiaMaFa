@@ -84,7 +84,7 @@ final class CurrentProfileProvider
   CurrentProfile create() => CurrentProfile();
 }
 
-String _$currentProfileHash() => r'c0dfd827ee6dd63ad96a938c180d6245cb12a6dd';
+String _$currentProfileHash() => r'167bf39ce72db423fb794dd889fc546b553b3eb3';
 
 /// Profilo dell'utente corrente (`null` se deve ancora fare l'onboarding).
 
@@ -152,6 +152,68 @@ abstract class _$OnboardingController extends $Notifier<AsyncValue<void>> {
             as $ClassProviderElement<
               AnyNotifier<AsyncValue<void>, AsyncValue<void>>,
               AsyncValue<void>,
+              Object?,
+              Object?
+            >;
+    return element.handleCreate(ref, build);
+  }
+}
+
+/// Azioni del Profilo. Gli errori arrivano alla schermata (es. nickname in uso).
+/// keepAlive: le azioni terminano anche se nessuno ascolta (niente dispose a metà).
+
+@ProviderFor(ProfileController)
+final profileControllerProvider = ProfileControllerProvider._();
+
+/// Azioni del Profilo. Gli errori arrivano alla schermata (es. nickname in uso).
+/// keepAlive: le azioni terminano anche se nessuno ascolta (niente dispose a metà).
+final class ProfileControllerProvider
+    extends $NotifierProvider<ProfileController, void> {
+  /// Azioni del Profilo. Gli errori arrivano alla schermata (es. nickname in uso).
+  /// keepAlive: le azioni terminano anche se nessuno ascolta (niente dispose a metà).
+  ProfileControllerProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'profileControllerProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$profileControllerHash();
+
+  @$internal
+  @override
+  ProfileController create() => ProfileController();
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(void value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<void>(value),
+    );
+  }
+}
+
+String _$profileControllerHash() => r'1a683bf9fdad88759d73f5a42168deecea56356d';
+
+/// Azioni del Profilo. Gli errori arrivano alla schermata (es. nickname in uso).
+/// keepAlive: le azioni terminano anche se nessuno ascolta (niente dispose a metà).
+
+abstract class _$ProfileController extends $Notifier<void> {
+  void build();
+  @$mustCallSuper
+  @override
+  WhenComplete runBuild() {
+    final ref = this.ref as $Ref<void, void>;
+    final element =
+        ref.element
+            as $ClassProviderElement<
+              AnyNotifier<void, void>,
+              void,
               Object?,
               Object?
             >;

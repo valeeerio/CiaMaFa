@@ -9,7 +9,8 @@ import '../features/places/places_screen.dart';
 import '../features/plans/launched_screen.dart';
 import '../features/plans/plan_detail_screen.dart';
 import '../features/plans/plans_screen.dart';
-import '../shared/placeholder_screen.dart';
+import '../features/profile/credits_screen.dart';
+import '../features/profile/profile_screen.dart';
 import '../shared/route_transitions.dart';
 
 part 'router.g.dart';
@@ -64,11 +65,13 @@ GoRouter router(Ref ref) {
         builder: (context, state) =>
             PlanDetailScreen(planId: state.pathParameters['id']!),
       ),
-      // Segnaposto: profilo (Fase 7).
       GoRoute(
         path: '/profile',
-        builder: (context, state) =>
-            const PlaceholderScreen(title: 'Profilo', subtitle: 'Fase 7'),
+        builder: (context, state) => const ProfileScreen(),
+      ),
+      GoRoute(
+        path: '/credits',
+        builder: (context, state) => const CreditsScreen(),
       ),
     ],
   );

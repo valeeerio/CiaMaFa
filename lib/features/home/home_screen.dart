@@ -6,6 +6,7 @@ import '../../core/theme.dart';
 import '../../shared/activity_button.dart';
 import '../onboarding/onboarding_provider.dart';
 import '../plans/activity.dart';
+import '../plans/plans_provider.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -16,6 +17,7 @@ class HomeScreen extends ConsumerWidget {
     final initial = nickname.isEmpty
         ? '?'
         : nickname.characters.first.toUpperCase();
+    final plansToday = ref.watch(livePlansProvider).value?.length ?? 0;
     final text = Theme.of(context).textTheme;
 
     return Scaffold(
@@ -43,7 +45,6 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 ),
                 const Spacer(),
-                // Il badge con il conteggio arriva nella Fase 5 (piani di oggi).
                 FilledButton(
                   onPressed: () => context.push('/plans'),
                   style: FilledButton.styleFrom(
@@ -51,7 +52,29 @@ class HomeScreen extends ConsumerWidget {
                     foregroundColor: AppColors.cream,
                     shape: const StadiumBorder(),
                   ),
-                  child: const Text('📅 Impegni'),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text('📅 Impegni'),
+                      // Quanti piani ci sono oggi (si aggiorna in tempo reale).
+                      if (plansToday > 0) ...[
+                        const SizedBox(width: 8),
+                        CircleAvatar(
+                          key: const ValueKey('plans-badge'),
+                          radius: 11,
+                          backgroundColor: AppColors.coral,
+                          child: Text(
+                            '$plansToday',
+                            style: const TextStyle(
+                              color: AppColors.nightBlue,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ],
             ),

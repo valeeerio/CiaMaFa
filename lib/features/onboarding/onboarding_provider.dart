@@ -17,6 +17,9 @@ class CurrentProfile extends _$CurrentProfile {
       ref.watch(profileRepositoryProvider).fetchCurrentProfile();
 
   void set(Profile profile) => state = AsyncData(profile);
+
+  /// Dopo la cancellazione del profilo: si torna all'onboarding.
+  void clear() => state = const AsyncData(null);
 }
 
 @riverpod
@@ -38,5 +41,32 @@ class OnboardingController extends _$OnboardingController {
           );
       ref.read(currentProfileProvider.notifier).set(profile);
     });
+  }
+}
+
+/// Azioni del Profilo. Gli errori arrivano alla schermata (es. nickname in uso).
+/// keepAlive: le azioni terminano anche se nessuno ascolta (niente dispose a metà).
+@Riverpod(keepAlive: true)
+class ProfileController extends _$ProfileController {
+  @override
+  void build() {}
+
+  Future<void> rename(String nickname) async {
+    final profile = await ref
+        .read(profileRepositoryProvider)
+        .updateNickname(nickname);
+    ref.read(currentProfileProvider.notifier).set(profile);
+  }
+
+  Future<void> setNotifications(bool enabled) async {
+    final profile = await ref
+        .read(profileRepositoryProvider)
+        .setNotificationsEnabled(enabled);
+    ref.read(currentProfileProvider.notifier).set(profile);
+  }
+
+  Future<void> deleteAccount() async {
+    await ref.read(profileRepositoryProvider).deleteProfile();
+    ref.read(currentProfileProvider.notifier).clear();
   }
 }

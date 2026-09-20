@@ -28,6 +28,16 @@ abstract interface class ProfileRepository {
   /// Profilo dell'utente corrente, `null` se senza sessione o senza profilo.
   Future<Profile?> fetchCurrentProfile();
 
+  /// Cambia il nickname. Lancia [NicknameTakenException] se è già usato
+  /// (maiuscole e spazi ai bordi non contano).
+  Future<Profile> updateNickname(String nickname);
+
+  /// Attiva/disattiva le notifiche.
+  Future<Profile> setNotificationsEnabled(bool enabled);
+
+  /// Cancella il proprio profilo (e i piani ancora attivi) ed esce.
+  Future<void> deleteProfile();
+
   /// Accede in modo anonimo (se serve) e crea il profilo nel gruppo unico.
   /// Lancia [NicknameTakenException] se il nickname è già usato.
   Future<Profile> joinGroup({
@@ -51,6 +61,42 @@ class SupabaseProfileRepository implements ProfileRepository {
         .eq('id', user.id)
         .maybeSingle();
     return row == null ? null : Profile.fromRow(row);
+  }
+
+  @override
+  Future<Profile> updateNickname(String nickname) async {
+    try {
+      final row = await _client
+          .from('profiles')
+          .update({'nickname': nickname.trim()})
+          .eq('id', _client.auth.currentUser!.id)
+          .select()
+          .single();
+      return Profile.fromRow(row);
+    } on PostgrestException catch (e) {
+      if (e.code == '23505') throw const NicknameTakenException();
+      rethrow;
+    }
+  }
+
+  @override
+  Future<Profile> setNotificationsEnabled(bool enabled) async {
+    final row = await _client
+        .from('profiles')
+        .update({'notifications_enabled': enabled})
+        .eq('id', _client.auth.currentUser!.id)
+        .select()
+        .single();
+    return Profile.fromRow(row);
+  }
+
+  @override
+  Future<void> deleteProfile() async {
+    await _client.rpc<void>('delete_my_profile');
+    try {
+      // L'utente non esiste più sul server: basta chiudere la sessione locale.
+      await _client.auth.signOut(scope: SignOutScope.local);
+    } catch (_) {}
   }
 
   @override
