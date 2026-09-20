@@ -12,6 +12,7 @@ import '../../shared/staggered_entrance.dart';
 import 'map_style.dart';
 import 'place_candidate.dart';
 import 'place_clusters.dart';
+import 'place_style.dart';
 
 /// Mappa con i preset (pin, o cerchi col numero quando si sovrapporrebbero) e il
 /// luogo selezionato (atterraggio morbido, onda e etichetta).
@@ -95,7 +96,9 @@ class PlacesMap extends StatelessWidget {
           onTapPlace: onTapPlace,
           onTapCluster: onTapCluster,
         ),
-        if (selected != null)
+        if (selected != null && selected!.isUserPosition)
+          _UserPositionLayer(place: selected!)
+        else if (selected != null)
           MarkerLayer(markers: [_ripple(selected!), _selected(selected!)]),
       ],
     );
@@ -291,7 +294,9 @@ class _SelectedPinState extends State<_SelectedPin>
 
 /// Onda che si espande una volta sola attorno al pin selezionato.
 class _RippleRing extends StatefulWidget {
-  const _RippleRing();
+  const _RippleRing({this.color = AppColors.coral});
+
+  final Color color;
 
   @override
   State<_RippleRing> createState() => _RippleRingState();
@@ -330,7 +335,7 @@ class _RippleRingState extends State<_RippleRing>
           painter: _RipplePainter(
             radius: 8 + 50 * t,
             opacity: 0.6 * (1 - t),
-            color: AppColors.coral,
+            color: widget.color,
           ),
         );
       },
@@ -365,4 +370,129 @@ class _RipplePainter extends CustomPainter {
   @override
   bool shouldRepaint(_RipplePainter old) =>
       old.radius != radius || old.opacity != opacity || old.color != color;
+}
+
+/// La posizione dell'utente: puntino blu con alone (precisione del GPS, in
+/// scala con lo zoom), un'onda una tantum e l'etichetta "Sei qui · via".
+class _UserPositionLayer extends StatelessWidget {
+  const _UserPositionLayer({required this.place});
+
+  final PlaceCandidate place;
+
+  @override
+  Widget build(BuildContext context) {
+    final camera = MapCamera.of(context);
+    final halo = userHaloSize(
+      accuracyMeters: place.accuracyMeters,
+      latitude: place.lat,
+      zoom: camera.zoom,
+    );
+    final id = '${place.lat},${place.lng}';
+    final street = place.street;
+    return MarkerLayer(
+      markers: [
+        Marker(
+          key: ValueKey('me-halo:$id'),
+          point: place.point,
+          width: halo,
+          height: halo,
+          child: IgnorePointer(
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                const _RippleRing(color: userPositionBlue),
+                StaggeredEntrance(
+                  fromScale: 0.7,
+                  offset: Offset.zero,
+                  child: DecoratedBox(
+                    key: const ValueKey('me-halo'),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: userPositionBlue.withValues(alpha: 0.18),
+                      border: Border.all(
+                        color: userPositionBlue.withValues(alpha: 0.35),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: SizedBox.square(dimension: halo),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Marker(
+          key: ValueKey('me-dot:$id'),
+          point: place.point,
+          width: 28,
+          height: 28,
+          child: IgnorePointer(
+            child: StaggeredEntrance(
+              fromScale: 0.6,
+              offset: Offset.zero,
+              child: Container(
+                key: const ValueKey('me-dot'),
+                decoration: BoxDecoration(
+                  color: userPositionBlue,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: AppColors.white, width: 3.5),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x40000000), offset: Offset(0, 2)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        Marker(
+          key: ValueKey('me-label:$id'),
+          point: place.point,
+          width: 240,
+          height: 60,
+          alignment: Alignment.topCenter,
+          child: IgnorePointer(
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 20),
+                child: StaggeredEntrance(
+                  index: 2,
+                  fromScale: 0.9,
+                  offset: const Offset(0, 6),
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x331B2A4A),
+                          offset: Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      child: Text(
+                        street == null ? 'Sei qui' : 'Sei qui · $street',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.nightBlue,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }

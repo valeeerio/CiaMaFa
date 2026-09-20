@@ -82,4 +82,44 @@ void main() {
     );
     expect(repo.search('bar'), throwsA(isA<http.ClientException>()));
   });
+
+  group('streetLabelFromResponse', () {
+    String body(Map<String, dynamic> props) => jsonEncode({
+      'features': [
+        {'properties': props},
+      ],
+    });
+    String? label(Map<String, dynamic> props) =>
+        PhotonPlaceSearchRepository.streetLabelFromResponse(body(props));
+
+    test('street + house number', () {
+      expect(
+        label({'street': 'Via Roma', 'housenumber': '12', 'name': 'Bar X'}),
+        'Via Roma 12',
+      );
+    });
+
+    test('street only', () {
+      expect(label({'street': 'Via Roma'}), 'Via Roma');
+    });
+
+    test('a street feature: its own name', () {
+      expect(
+        label({'osm_key': 'highway', 'name': 'Via Marconi'}),
+        'Via Marconi',
+      );
+    });
+
+    test('a venue without street is never used as the address', () {
+      expect(label({'osm_key': 'amenity', 'name': 'Bar Centrale'}), isNull);
+    });
+
+    test('blank values and empty results give null', () {
+      expect(label({'street': '  '}), isNull);
+      expect(
+        PhotonPlaceSearchRepository.streetLabelFromResponse('{"features":[]}'),
+        isNull,
+      );
+    });
+  });
 }

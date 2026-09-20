@@ -24,7 +24,7 @@ void main() {
     when(() => gw.checkPermission())
         .thenAnswer((_) async => LocationPermission.whileInUse);
     when(() => gw.currentPosition(timeLimit: any(named: 'timeLimit')))
-        .thenAnswer((_) async => _here);
+        .thenAnswer((_) async => const GeoFix(_here, accuracyMeters: 25));
   });
 
   LocationFailureReason? failure(LocationResult r) =>
@@ -37,6 +37,7 @@ void main() {
         final r = await service.locate();
         expect(r, isA<LocationFound>());
         expect((r as LocationFound).point, _here);
+        expect(r.accuracyMeters, 25);
         verifyNever(() => gw.requestPermission());
       },
     );

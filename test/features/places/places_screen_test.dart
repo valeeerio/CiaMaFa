@@ -66,7 +66,10 @@ void main() {
   late MockSuggestions suggestions;
   late MockLocation location;
 
-  setUpAll(() => registerFallbackValue(LocationFailureReason.timeout));
+  setUpAll(() {
+    registerFallbackValue(LocationFailureReason.timeout);
+    registerFallbackValue(const LatLng(0, 0));
+  });
 
   void presetsAre(List<PlaceCandidate> list) =>
       when(() => suggestions.presetsFor(any())).thenAnswer((_) async => list);
@@ -76,6 +79,7 @@ void main() {
     suggestions = MockSuggestions();
     location = MockLocation();
     presetsAre([_piazza]);
+    when(() => search.streetAt(any())).thenAnswer((_) async => null);
     when(() => location.locate()).thenAnswer((_) async => _timeout);
     when(() => location.openSettings(any())).thenAnswer((_) async {});
   });
@@ -114,7 +118,35 @@ void main() {
   MapCamera cameraOf(WidgetTester tester) =>
       tester.widget<FlutterMap>(find.byType(FlutterMap)).mapController!.camera;
 
-  final locateChip = find.byKey(const ValueKey('chip:📍 La tua posizione'));
+  final openPlaces = find.byKey(const ValueKey('open-places'));
+  Finder row(String name) => find.byKey(ValueKey('row:$name'));
+  final meRow = find.byKey(const ValueKey('row:me'));
+
+  Future<void> openSheet(WidgetTester tester) async {
+    await tester.tap(openPlaces);
+    await tester.pumpAndSettle();
+  }
+
+  /// Apre il foglio e sceglie un luogo (il foglio si chiude).
+  Future<void> choose(WidgetTester tester, String name) async {
+    await openSheet(tester);
+    await tester.ensureVisible(row(name));
+    await tester.tap(row(name));
+    await tester.pumpAndSettle();
+  }
+
+  /// Apre il foglio e tocca "La tua posizione"; se [settle] è false non aspetta
+  /// la fine (la ricerca può essere ancora in corso, con la rotellina).
+  Future<void> chooseMe(WidgetTester tester, {bool settle = true}) async {
+    await openSheet(tester);
+    await tester.tap(meRow);
+    if (settle) {
+      await tester.pumpAndSettle();
+    } else {
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+    }
+  }
 
   group('testata e elementi rimossi', () {
     testWidgets('a centred "Dove?" and nothing else in the header', (
@@ -187,8 +219,7 @@ void main() {
       )!;
 
       expect(bg(), AppColors.muted);
-      await tester.tap(find.byKey(const ValueKey('chip:Piazza Aldo Moro')));
-      await tester.pumpAndSettle();
+      await choose(tester, 'Piazza Aldo Moro');
       expect(bg(), AppColors.orange);
     });
 
@@ -206,19 +237,22 @@ void main() {
 
       await pump(tester, 'bar');
       expect(emojiAngle(), 0);
-      await tester.tap(find.byKey(const ValueKey('chip:Piazza Aldo Moro')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
-      expect(emojiAngle().abs(), greaterThan(0.05));
+      await openSheet(tester);
+      await tester.tap(row('Piazza Aldo Moro'));
+      // Il foglio si chiude (fine ~320 ms), poi il razzo scodinzola.
+      var peak = 0.0;
+      for (var i = 0; i < 40; i++) {
+        await tester.pump(const Duration(milliseconds: 40));
+        peak = math.max(peak, emojiAngle().abs());
+      }
+      expect(peak, greaterThan(0.05));
       await tester.pumpAndSettle();
       expect(emojiAngle().abs(), lessThan(1e-6));
     });
 
     testWidgets('reduced motion: the rocket never wiggles', (tester) async {
       await pump(tester, 'bar', reduced: true);
-      await tester.tap(find.byKey(const ValueKey('chip:Piazza Aldo Moro')));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 100));
+      await choose(tester, 'Piazza Aldo Moro');
       final t = tester.widget<Transform>(
         find
             .ancestor(of: find.text('🚀'), matching: find.byType(Transform))
@@ -230,14 +264,13 @@ void main() {
 
   group('scelta del luogo', () {
     testWidgets(
-      'a preset chip selects it, shows its label on the pin, enables the CTA',
+      'a row in the sheet selects it, closes the sheet, labels the pin, enables the CTA',
       (tester) async {
         await pump(tester, 'bar');
-        await tester.tap(find.byKey(const ValueKey('chip:Piazza Aldo Moro')));
-        await tester.pumpAndSettle();
+        await choose(tester, 'Piazza Aldo Moro');
 
-        // Chip + etichetta sul pin: il nome ora sta solo lì (niente card).
-        expect(find.text('Piazza Aldo Moro'), findsAtLeastNWidgets(2));
+        expect(meRow, findsNothing); // foglio chiuso
+        expect(find.text('Piazza Aldo Moro'), findsOneWidget); // etichetta pin
         expect(cta(tester).onPressed, isNotNull);
       },
     );
@@ -267,11 +300,7 @@ void main() {
       await pump(tester, 'bar', size: const Size(390, 844));
       expect(cameraOf(tester).zoom, lessThan(12)); // vista d'insieme
 
-      final arcoChip = find.byKey(const ValueKey('chip:Arco del Tempo'));
-      await tester.ensureVisible(arcoChip); // la fila di chip è scorrevole
-      await tester.pumpAndSettle();
-      await tester.tap(arcoChip);
-      await tester.pumpAndSettle();
+      await choose(tester, 'Arco del Tempo');
 
       final cam = cameraOf(tester);
       expect(cam.zoom, greaterThanOrEqualTo(16));
@@ -280,7 +309,7 @@ void main() {
     });
   });
 
-  group('"La tua posizione" (chip, come prima)', () {
+  group('"La tua posizione" (prima riga del foglio)', () {
     testWidgets('with permission selects your position and enables the CTA', (
       tester,
     ) async {
@@ -289,19 +318,15 @@ void main() {
       ).thenAnswer((_) async => const LocationFound(LatLng(41.0414, 16.7487)));
       await pump(tester, 'bar');
 
-      await tester.tap(locateChip);
-      await tester.pumpAndSettle();
+      await chooseMe(tester);
 
-      expect(find.text('La tua posizione'), findsWidgets); // etichetta del pin
+      expect(find.text('Sei qui'), findsOneWidget); // etichetta del pin
       expect(cta(tester).onPressed, isNotNull);
     });
   });
 
   group('"La tua posizione": errori e attesa', () {
-    Future<void> tapLocate(WidgetTester tester) async {
-      await tester.tap(locateChip);
-      await tester.pumpAndSettle();
-    }
+    Future<void> tapLocate(WidgetTester tester) => chooseMe(tester);
 
     for (final reason in LocationFailureReason.values) {
       testWidgets('${reason.name}: shows its own message, not a generic one', (
@@ -377,60 +402,39 @@ void main() {
       expect(find.text(LocationFailureReason.timeout.message), findsNothing);
     });
 
-    testWidgets('shows a spinner on the chip while looking, then goes back', (
+    testWidgets('shows a spinner on the Luoghi button while looking', (
       tester,
     ) async {
       final pending = Completer<LocationResult>();
       when(() => location.locate()).thenAnswer((_) => pending.future);
       await pump(tester, 'bar');
-      expect(
-        find.descendant(
-          of: locateChip,
-          matching: find.byType(CircularProgressIndicator),
-        ),
-        findsNothing,
-      );
-
-      await tester.tap(locateChip);
-      await tester.pump();
       final spinner = find.descendant(
-        of: locateChip,
+        of: openPlaces,
         matching: find.byType(CircularProgressIndicator),
       );
+      expect(spinner, findsNothing);
+
+      await chooseMe(tester, settle: false);
       expect(spinner, findsOneWidget);
-      expect(
-        find.descendant(of: locateChip, matching: find.text('📍')),
-        findsNothing,
-      );
-      expect(
-        find.descendant(
-          of: locateChip,
-          matching: find.text('La tua posizione'),
-        ),
-        findsOneWidget,
-      );
+      expect(find.byIcon(Icons.map_outlined), findsNothing);
 
       pending.complete(const LocationFound(LatLng(41.0414, 16.7487)));
       await tester.pumpAndSettle();
       expect(spinner, findsNothing);
-      expect(
-        find.descendant(of: locateChip, matching: find.text('📍')),
-        findsOneWidget,
-      );
+      expect(find.byIcon(Icons.map_outlined), findsOneWidget);
     });
 
     testWidgets('the spinner also goes away after a failure', (tester) async {
       final pending = Completer<LocationResult>();
       when(() => location.locate()).thenAnswer((_) => pending.future);
       await pump(tester, 'bar');
-      await tester.tap(locateChip);
-      await tester.pump();
+      await chooseMe(tester, settle: false);
 
       pending.complete(_timeout);
       await tester.pumpAndSettle();
       expect(
         find.descendant(
-          of: locateChip,
+          of: openPlaces,
           matching: find.byType(CircularProgressIndicator),
         ),
         findsNothing,
@@ -444,12 +448,13 @@ void main() {
         when(() => location.locate()).thenAnswer((_) => pending.future);
         await pump(tester, 'bar');
 
-        await tester.tap(locateChip);
+        await chooseMe(tester, settle: false);
+        // Mentre cerca, riaprire il foglio e ritoccare non riparte.
+        await tester.tap(openPlaces);
         await tester.pump();
-        await tester.tap(locateChip);
-        await tester.pump();
-        await tester.tap(locateChip);
-        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+        await tester.tap(meRow);
+        await tester.pump(const Duration(seconds: 1));
 
         verify(() => location.locate()).called(1);
         pending.complete(_timeout);
@@ -463,8 +468,7 @@ void main() {
       final pending = Completer<LocationResult>();
       when(() => location.locate()).thenAnswer((_) => pending.future);
       await pump(tester, 'bar');
-      await tester.tap(locateChip);
-      await tester.pump();
+      await chooseMe(tester, settle: false);
 
       await tester.pumpWidget(const SizedBox()); // schermata chiusa
       pending.complete(const LocationFound(LatLng(41, 16)));
@@ -512,8 +516,7 @@ void main() {
             .thenAnswer((_) async => const LocationFound(me));
 
         await pump(tester, 'bar', size: const Size(390, 844));
-        await tester.tap(locateChip);
-        await tester.pumpAndSettle();
+        await chooseMe(tester);
         expect(cameraOf(tester).center.latitude, closeTo(me.latitude, 1e-6));
 
         presets.complete([_piazza]);
@@ -621,131 +624,281 @@ void main() {
         await pump(tester, 'bar', size: const Size(390, 844));
         expect(find.text('2'), findsOneWidget);
 
-        final arcoChip = find.byKey(const ValueKey('chip:Arco del Tempo'));
-        await tester.ensureVisible(arcoChip); // la fila di chip è scorrevole
-        await tester.pumpAndSettle();
-        await tester.tap(arcoChip);
-        await tester.pumpAndSettle();
+        await choose(tester, 'Arco del Tempo');
 
         expect(find.text('2'), findsNothing); // Pineta resta da sola
-        expect(
-          find.text('Arco del Tempo'),
-          findsAtLeastNWidgets(2),
-        ); // chip + etichetta
+        expect(find.text('Arco del Tempo'), findsOneWidget); // etichetta pin
         expect(cta(tester).onPressed, isNotNull);
       },
     );
   });
 
-  group('classifica dei preset', () {
-    Finder chip(String name) => find.byKey(ValueKey('chip:$name'));
-
-    testWidgets(
-      'chips follow the order given by the server, most chosen first',
-      (tester) async {
-        // Ordine del server: Pineta (×5) prima di Arco (×2) prima di Gatti (×0).
-        presetsAre([
-          const PlaceCandidate(
-            name: 'Pineta Comunale',
-            lat: 41.03797,
-            lng: 16.73744,
-            timesUsed: 5,
-          ),
-          const PlaceCandidate(
-            name: 'Arco del Tempo',
-            lat: 41.03954,
-            lng: 16.74883,
-            timesUsed: 2,
-          ),
-          _gatti,
-        ]);
-        await pump(tester, 'bar', size: const Size(2400, 900));
-
-        final xs = [
-          for (final n in ['Pineta Comunale', 'Arco del Tempo', 'GATTI Area'])
-            tester.getTopLeft(chip(n)).dx,
-        ];
-        expect(xs, orderedEquals([...xs]..sort()));
-        expect(xs.toSet().length, 3);
-        // …e "La tua posizione" resta sempre il primo.
-        expect(tester.getTopLeft(locateChip).dx, lessThan(xs.first));
-      },
+  group('elenco dei luoghi (foglio)', () {
+    final pinetaX5 = PlaceCandidate(
+      name: 'Pineta Comunale',
+      lat: 41.03797,
+      lng: 16.73744,
+      timesUsed: 5,
+      score: 6,
+      lastUsedAt: DateTime.now().subtract(const Duration(days: 1)),
+    );
+    final arcoX2 = PlaceCandidate(
+      name: 'Arco del Tempo',
+      lat: 41.03954,
+      lng: 16.74883,
+      timesUsed: 2,
+      score: 2,
+      lastUsedAt: DateTime.now(),
     );
 
-    testWidgets('a small ×N shows how many times a place was chosen', (
+    testWidgets('the button is just a map icon: no text, no count', (
       tester,
     ) async {
-      presetsAre([
-        const PlaceCandidate(
-          name: 'Pineta Comunale',
-          lat: 41.03797,
-          lng: 16.73744,
-          timesUsed: 5,
-        ),
-        const PlaceCandidate(
-          name: 'Arco del Tempo',
-          lat: 41.03954,
-          lng: 16.74883,
-          timesUsed: 1,
-        ),
-        _gatti, // mai scelto → nessun numero
-      ]);
-      await pump(tester, 'bar', size: const Size(2400, 900));
-
-      expect(
-        find.descendant(of: chip('Pineta Comunale'), matching: find.text('×5')),
-        findsOneWidget,
-      );
-      expect(
-        find.descendant(of: chip('Arco del Tempo'), matching: find.text('×1')),
-        findsOneWidget,
-      );
+      presetsAre([pinetaX5, arcoX2, _gatti]);
+      await pump(tester, 'bar');
       expect(
         find.descendant(
-          of: chip('GATTI Area'),
-          matching: find.textContaining('×'),
+          of: openPlaces,
+          matching: find.byIcon(Icons.map_outlined),
         ),
-        findsNothing,
-      );
-      // La posizione non è un preset: mai un contatore.
-      expect(
-        find.descendant(of: locateChip, matching: find.textContaining('×')),
-        findsNothing,
-      );
-    });
-
-    testWidgets('the counter also shows on the selected chip', (tester) async {
-      presetsAre([
-        const PlaceCandidate(
-          name: 'Arco del Tempo',
-          lat: 41.03954,
-          lng: 16.74883,
-          timesUsed: 3,
-        ),
-      ]);
-      await pump(tester, 'bar', size: const Size(2400, 900));
-      await tester.tap(chip('Arco del Tempo'));
-      await tester.pumpAndSettle();
-      expect(
-        find.descendant(of: chip('Arco del Tempo'), matching: find.text('×3')),
         findsOneWidget,
       );
+      expect(
+        find.descendant(of: openPlaces, matching: find.byType(Text)),
+        findsNothing,
+      );
+      expect(tester.getSize(openPlaces), const Size(52, 52));
     });
 
-    testWidgets('no more limit of 8: every preset is shown', (tester) async {
+    testWidgets('the map keeps its full height: no chips, no sheet under it', (
+      tester,
+    ) async {
+      await pump(tester, 'bar', size: const Size(390, 844));
+      expect(meRow, findsNothing);
+      expect(row('Piazza Aldo Moro'), findsNothing);
+      expect(find.byType(ListView), findsNothing);
+    });
+
+    testWidgets('opens near full screen, "La tua posizione" first', (
+      tester,
+    ) async {
+      presetsAre([pinetaX5, arcoX2, _gatti]);
+      await pump(tester, 'bar', size: const Size(390, 844));
+      await openSheet(tester);
+
+      expect(find.textContaining('Luoghi', findRichText: true), findsWidgets);
+      final top = tester.getTopLeft(meRow).dy;
+      expect(top, greaterThan(130)); // lascia la testata visibile
+      expect(top, lessThan(260));
+      expect(
+        tester.getTopLeft(meRow).dy,
+        lessThan(tester.getTopLeft(row('Pineta Comunale')).dy),
+      );
+    });
+
+    testWidgets('rows follow the order given by the server', (tester) async {
+      presetsAre([pinetaX5, arcoX2, _gatti]);
+      await pump(tester, 'bar', size: const Size(390, 844));
+      await openSheet(tester);
+      final ys = [
+        for (final n in ['Pineta Comunale', 'Arco del Tempo', 'GATTI Area'])
+          tester.getTopLeft(row(n)).dy,
+      ];
+      expect(ys, orderedEquals([...ys]..sort()));
+      expect(ys.toSet().length, 3);
+    });
+
+    Finder inRow(String name, Finder f) =>
+        find.descendant(of: row(name), matching: f);
+
+    testWidgets('no kilometres anywhere', (tester) async {
+      presetsAre([pinetaX5, arcoX2, _gatti]);
+      await pump(tester, 'bar', size: const Size(390, 844));
+      await openSheet(tester);
+      expect(find.textContaining(' km'), findsNothing);
+    });
+
+    testWidgets('×N and last time, only for places already chosen', (
+      tester,
+    ) async {
+      presetsAre([pinetaX5, arcoX2, _gatti]);
+      await pump(tester, 'bar', size: const Size(390, 844));
+      await openSheet(tester);
+
+      expect(inRow('Pineta Comunale', find.text('×5 · ieri')), findsOneWidget);
+      expect(inRow('Arco del Tempo', find.text('×2 · oggi')), findsOneWidget);
+      // Mai scelto: riga senza info (né numero né barra).
+      expect(inRow('GATTI Area', find.textContaining('×')), findsNothing);
+      expect(
+        inRow('GATTI Area', find.byKey(const ValueKey('popularity-bar'))),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: meRow, matching: find.textContaining('×')),
+        findsNothing,
+      );
+    });
+
+    testWidgets('popularity bar is proportional to the top score', (
+      tester,
+    ) async {
+      presetsAre([pinetaX5, arcoX2]);
+      await pump(tester, 'bar', size: const Size(390, 844));
+      await openSheet(tester);
+      double w(String n) => tester
+          .getSize(inRow(n, find.byKey(const ValueKey('popularity-bar'))))
+          .width;
+      expect(w('Arco del Tempo') / w('Pineta Comunale'), closeTo(2 / 6, 0.02));
+    });
+
+    testWidgets('medals go to the first three places already chosen', (
+      tester,
+    ) async {
+      PlaceCandidate used(String n, int t) => PlaceCandidate(
+        name: n,
+        lat: 41,
+        lng: 16,
+        timesUsed: t,
+        score: t * 1.0,
+      );
+      presetsAre([
+        used('A', 5),
+        used('B', 4),
+        used('C', 3),
+        used('D', 2),
+        _gatti,
+      ]);
+      await pump(tester, 'bar', size: const Size(390, 844));
+      await openSheet(tester);
+      expect(inRow('A', find.text('🥇')), findsOneWidget);
+      expect(inRow('B', find.text('🥈')), findsOneWidget);
+      expect(inRow('C', find.text('🥉')), findsOneWidget);
+      expect(inRow('D', find.textContaining('🥇')), findsNothing);
+      expect(find.text('🥇'), findsOneWidget);
+      expect(find.text('🥈'), findsOneWidget);
+      expect(find.text('🥉'), findsOneWidget);
+    });
+
+    testWidgets('never-chosen places get no medal, even in the top spots', (
+      tester,
+    ) async {
+      presetsAre([_gatti, _pineta]);
+      await pump(tester, 'bar', size: const Size(390, 844));
+      await openSheet(tester);
+      expect(find.text('🥇'), findsNothing);
+    });
+
+    testWidgets('no more limit of 8: every preset is listed', (tester) async {
       final many = [
         for (var i = 0; i < 14; i++)
           PlaceCandidate(name: 'Posto $i', lat: 41.03 + i * 0.001, lng: 16.74),
       ];
       presetsAre(many);
-      await pump(
-        tester,
-        'bar',
-        size: const Size(2400, 900),
-      ); // largo: tutti i chip visibili
+      await pump(tester, 'bar', size: const Size(390, 2400));
+      await openSheet(tester);
       for (final p in many) {
-        expect(chip(p.name), findsOneWidget, reason: p.name);
+        expect(row(p.name), findsOneWidget, reason: p.name);
       }
+    });
+
+    testWidgets('the selected place keeps its stats', (tester) async {
+      presetsAre([arcoX2]);
+      await pump(tester, 'bar', size: const Size(390, 844));
+      await choose(tester, 'Arco del Tempo');
+      await openSheet(tester);
+      expect(
+        find.descendant(
+          of: row('Arco del Tempo'),
+          matching: find.text('×2 · oggi'),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('tapping the grip closes the sheet without choosing', (
+      tester,
+    ) async {
+      await pump(tester, 'bar', size: const Size(390, 844));
+      await openSheet(tester);
+      await tester.tap(find.bySemanticsLabel("Chiudi l'elenco dei luoghi"));
+      await tester.pumpAndSettle();
+      expect(meRow, findsNothing);
+      expect(cta(tester).onPressed, isNull);
+    });
+
+    testWidgets('tapping the dimmed area closes the sheet', (tester) async {
+      await pump(tester, 'bar', size: const Size(390, 844));
+      await openSheet(tester);
+      await tester.tapAt(const Offset(195, 40));
+      await tester.pumpAndSettle();
+      expect(meRow, findsNothing);
+    });
+
+    testWidgets('reduced motion: the sheet opens and closes all the same', (
+      tester,
+    ) async {
+      await pump(tester, 'bar', reduced: true, size: const Size(390, 844));
+      await choose(tester, 'Piazza Aldo Moro');
+      expect(meRow, findsNothing);
+      expect(cta(tester).onPressed, isNotNull);
+    });
+  });
+
+  group('posizione: puntino blu, alone, via', () {
+    const me = LatLng(41.0414, 16.7487);
+
+    setUp(() {
+      when(() => location.locate())
+          .thenAnswer((_) async => const LocationFound(me, accuracyMeters: 40));
+      when(() => search.streetAt(any())).thenAnswer((_) async => null);
+    });
+
+    testWidgets('shows blue dot, halo and "Sei qui"', (tester) async {
+      await pump(tester, 'bar', size: const Size(390, 844));
+      await chooseMe(tester);
+      expect(find.byKey(const ValueKey('me-dot')), findsOneWidget);
+      expect(find.byKey(const ValueKey('me-halo')), findsOneWidget);
+      expect(find.text('Sei qui'), findsOneWidget);
+    });
+
+    testWidgets('the label gains the street when Photon finds it', (
+      tester,
+    ) async {
+      when(() => search.streetAt(any())).thenAnswer((_) async => 'Via Roma 12');
+      await pump(tester, 'bar', size: const Size(390, 844));
+      await chooseMe(tester);
+      expect(find.text('Sei qui · Via Roma 12'), findsOneWidget);
+      await openSheet(tester);
+      expect(
+        find.descendant(of: meRow, matching: find.text('Via Roma 12')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a failing reverse lookup keeps plain "Sei qui"', (
+      tester,
+    ) async {
+      when(() => search.streetAt(any())).thenThrow(Exception('offline'));
+      await pump(tester, 'bar', size: const Size(390, 844));
+      await chooseMe(tester);
+      expect(find.text('Sei qui'), findsOneWidget);
+      expect(cta(tester).onPressed, isNotNull);
+    });
+
+    testWidgets('a late street is ignored if you chose another place', (
+      tester,
+    ) async {
+      final street = Completer<String?>();
+      when(() => search.streetAt(any())).thenAnswer((_) => street.future);
+      await pump(tester, 'bar', size: const Size(390, 844));
+      await chooseMe(tester);
+      await choose(tester, 'Piazza Aldo Moro');
+
+      street.complete('Via Roma 12');
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Via Roma'), findsNothing);
+      expect(find.byKey(const ValueKey('me-dot')), findsNothing);
+      expect(find.text('Piazza Aldo Moro'), findsOneWidget);
     });
   });
 
@@ -786,15 +939,15 @@ void main() {
       expect(dashedFrame(), findsNothing);
     });
 
-    testWidgets('search bar and chips are flat Home-style pills', (
+    testWidgets('search bar and the Luoghi button sit on one line', (
       tester,
     ) async {
       await pump(tester, 'bar');
-      expect(find.text('Cerca un locale, indirizzo, piazza…'), findsOneWidget);
-      expect(locateChip, findsOneWidget);
+      expect(find.text('Cerca un posto…'), findsOneWidget);
+      expect(openPlaces, findsOneWidget);
       expect(
-        find.byKey(const ValueKey('chip:Piazza Aldo Moro')),
-        findsOneWidget,
+        tester.getCenter(openPlaces).dy,
+        closeTo(tester.getCenter(find.byType(TextField)).dy, 1),
       );
     });
   });

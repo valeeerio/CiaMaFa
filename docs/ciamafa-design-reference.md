@@ -71,7 +71,7 @@ Bar Centrale (Via Roma 12), Corso Vittorio Emanuele, + "La tua posizione".
 - Testata simmetrica: freccia a sinistra, titolo unico **"Dove?"** al centro (uguale per tutte le attività), spazio vuoto a destra. Niente pillola con l'attività, niente eyebrow "· adesso", niente titolo lungo per attività.
 - Mappa reale (flutter_map, tile CARTO) al posto dell'illustrazione, a blocco con cornice nel colore del pulsante toccato. Nessun badge "Anteprima mappa", nessun 🎯, nessuna attribuzione visibile (da riportare nella pagina Crediti del Profilo).
 - Tasti **+ / −** in basso a destra sulla mappa. All'apertura la mappa inquadra **tutti** i punti; i pin che si sovrapporrebbero diventano cerchi col numero (tocco = zoom).
-- Nessuna card riepilogo né testo helper: il luogo scelto si vede dall'etichetta sul pin. "La tua posizione" resta un chip che sceglie la posizione come luogo.
+- Nessuna card riepilogo né testo helper: il luogo scelto si vede dall'etichetta sul pin. I luoghi stanno in un foglio quasi a schermo pieno, aperto dal pulsante "☰ Luoghi · N" accanto alla ricerca (righe: nome, ×N se > 0, distanza; "La tua posizione" per prima). La posizione scelta è un puntino blu con alone e l'etichetta "Sei qui · via e civico".
 
 ### 4. Piano lanciato
 Sfondo blu notte, confetti animati, icona 🎉, titolo "Piano lanciato!", riepilogo

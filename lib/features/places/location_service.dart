@@ -40,9 +40,12 @@ sealed class LocationResult {
 }
 
 final class LocationFound extends LocationResult {
-  const LocationFound(this.point);
+  const LocationFound(this.point, {this.accuracyMeters});
 
   final LatLng point;
+
+  /// Precisione stimata in metri (raggio dell'alone), se nota.
+  final double? accuracyMeters;
 }
 
 final class LocationFailure extends LocationResult {
@@ -60,6 +63,14 @@ abstract interface class LocationService {
   Future<void> openSettings(LocationFailureReason reason);
 }
 
+/// Una posizione con la sua precisione (metri).
+class GeoFix {
+  const GeoFix(this.point, {this.accuracyMeters});
+
+  final LatLng point;
+  final double? accuracyMeters;
+}
+
 /// Il minimo di `Geolocator` che serve: separato per poter testare la logica.
 abstract interface class GeolocatorGateway {
   Future<bool> isServiceEnabled();
@@ -67,7 +78,7 @@ abstract interface class GeolocatorGateway {
   Future<LocationPermission> requestPermission();
 
   /// Lancia [TimeoutException] se non arriva nulla entro [timeLimit].
-  Future<LatLng> currentPosition({required Duration timeLimit});
+  Future<GeoFix> currentPosition({required Duration timeLimit});
   Future<bool> openAppSettings();
   Future<bool> openLocationSettings();
 }
@@ -86,7 +97,7 @@ class PlatformGeolocatorGateway implements GeolocatorGateway {
       Geolocator.requestPermission();
 
   @override
-  Future<LatLng> currentPosition({required Duration timeLimit}) async {
+  Future<GeoFix> currentPosition({required Duration timeLimit}) async {
     final p = await Geolocator.getCurrentPosition(
       // Basta ~100 m per scegliere un posto: più veloce dell'alta precisione.
       locationSettings: LocationSettings(
@@ -94,7 +105,10 @@ class PlatformGeolocatorGateway implements GeolocatorGateway {
         timeLimit: timeLimit,
       ),
     );
-    return LatLng(p.latitude, p.longitude);
+    return GeoFix(
+      LatLng(p.latitude, p.longitude),
+      accuracyMeters: p.accuracy > 0 ? p.accuracy : null,
+    );
   }
 
   @override
@@ -133,9 +147,8 @@ class GeolocatorLocationService implements LocationService {
         case LocationPermission.always:
           break;
       }
-      return LocationFound(
-        await _gateway.currentPosition(timeLimit: timeLimit),
-      );
+      final fix = await _gateway.currentPosition(timeLimit: timeLimit);
+      return LocationFound(fix.point, accuracyMeters: fix.accuracyMeters);
     } on TimeoutException {
       return const LocationFailure(LocationFailureReason.timeout);
     } on PermissionDeniedException {

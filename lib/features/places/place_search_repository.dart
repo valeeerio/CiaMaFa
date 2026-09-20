@@ -10,6 +10,9 @@ abstract interface class PlaceSearchRepository {
 
   /// Luogo più vicino al punto, `null` se non c'è nulla.
   Future<PlaceCandidate?> reverse(LatLng point);
+
+  /// Via (e civico, se noto) al punto, es. "Via Roma 12"; `null` se non si trova.
+  Future<String?> streetAt(LatLng point);
 }
 
 /// Photon (geocoding OSM, senza chiave). Servizio pubblico a uso equo.
@@ -43,6 +46,38 @@ class PhotonPlaceSearchRepository implements PlaceSearchRepository {
     });
     final results = parseFeatures(await _get(uri));
     return results.isEmpty ? null : results.first;
+  }
+
+  @override
+  Future<String?> streetAt(LatLng point) async {
+    final uri = Uri.https(_host, '/reverse', {
+      'lat': '${point.latitude}',
+      'lon': '${point.longitude}',
+      'limit': '1',
+    });
+    return streetLabelFromResponse(await _get(uri));
+  }
+
+  /// "Via Roma 12" dalla risposta di Photon: via + civico se ci sono; se il
+  /// risultato è la via stessa, il suo nome; altrimenti `null` (mai il nome di
+  /// un locale: la posizione dell'utente non è un locale).
+  static String? streetLabelFromResponse(String body) {
+    final features =
+        (jsonDecode(body) as Map<String, dynamic>)['features'] as List? ?? [];
+    if (features.isEmpty) return null;
+    final props =
+        (features.first['properties'] as Map<String, dynamic>?) ?? const {};
+    final isStreet = props['osm_key'] == 'highway';
+    final street =
+        _clean(props['street']) ?? (isStreet ? _clean(props['name']) : null);
+    if (street == null) return null;
+    final number = _clean(props['housenumber']);
+    return number == null ? street : '$street $number';
+  }
+
+  static String? _clean(Object? v) {
+    final s = v is String ? v.trim() : null;
+    return (s == null || s.isEmpty) ? null : s;
   }
 
   Future<String> _get(Uri uri) async {

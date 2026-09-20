@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -15,6 +16,7 @@ import '../plans/activity.dart';
 import 'camera_animator.dart';
 import 'location_service.dart';
 import 'place_candidate.dart';
+import 'place_list_sheet.dart';
 import 'places_map.dart';
 import 'places_provider.dart';
 
@@ -46,6 +48,8 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen>
   LatLng _center = bitetto;
   bool _fitted = false;
   bool _locating = false;
+
+  /// Posizione dell'utente, se già trovata: le distanze dell'elenco partono da qui.
 
   @override
   void initState() {
@@ -153,8 +157,9 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen>
     }
   }
 
-  /// Chip "La tua posizione": cerca la posizione dell'utente e, se la trova,
-  /// la sceglie come luogo (pin + volo della camera). Se no, dice perché.
+  /// Riga "La tua posizione": cerca la posizione dell'utente e, se la trova, la
+  /// sceglie come luogo (puntino blu, alone e volo della camera); poi ricava la
+  /// via. Se non riesce, dice perché.
   Future<void> _locate() async {
     if (_locating) return; // un tocco alla volta
     setState(() => _locating = true);
@@ -162,16 +167,65 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen>
     if (!mounted) return;
     setState(() => _locating = false);
     switch (result) {
-      case LocationFound(:final point):
+      case LocationFound(:final point, :final accuracyMeters):
         _choose(
-          PlaceCandidate(
-            name: 'La tua posizione',
-            lat: point.latitude,
-            lng: point.longitude,
+          PlaceCandidate.userPosition(
+            point: point,
+            accuracyMeters: accuracyMeters,
           ),
         );
+        unawaited(_resolveStreet(point, accuracyMeters));
       case LocationFailure(:final reason):
         _showLocationError(reason);
+    }
+  }
+
+  /// Aggiunge la via ("Via Roma 12") alla posizione scelta, se non è cambiata
+  /// nel frattempo. Se non si trova, resta "La tua posizione".
+  Future<void> _resolveStreet(LatLng point, double? accuracyMeters) async {
+    try {
+      final street = await ref
+          .read(placeSearchRepositoryProvider)
+          .streetAt(point);
+      if (!mounted || street == null) return;
+      final current = ref.read(placeSelectionProvider);
+      if (current == null ||
+          !current.isUserPosition ||
+          current.point != point) {
+        return;
+      }
+      ref
+          .read(placeSelectionProvider.notifier)
+          .select(
+            PlaceCandidate.userPosition(
+              point: point,
+              street: street,
+              accuracyMeters: accuracyMeters,
+            ),
+          );
+    } catch (_) {
+      // La via è un di più: resta "La tua posizione".
+    }
+  }
+
+  Future<void> _openPlaces() async {
+    _searchFocus.unfocus();
+    final choice = await showPlaceListSheet(
+      context,
+      activity: _activity,
+      presets:
+          ref.read(suggestedPlacesProvider(widget.activityId)).value ??
+          const [],
+      selected: ref.read(placeSelectionProvider),
+    );
+    if (!mounted) return;
+    switch (choice) {
+      case ChoseMe():
+        await _locate();
+      case ChosePlace(:final place):
+        _choose(place);
+      case null:
+        break;
     }
   }
 
@@ -212,16 +266,20 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen>
       body: SafeArea(
         child: Stack(
           children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _Header(onBack: () => context.pop()),
-                  const SizedBox(height: 14),
-                  CompositedTransformTarget(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                  child: _Header(onBack: () => context.pop()),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
+                  child: CompositedTransformTarget(
                     link: _searchLink,
                     child: _SearchBar(
+                      locating: _locating,
+                      onOpenPlaces: _openPlaces,
                       controller: _search,
                       focusNode: _searchFocus,
                       onChanged: (v) {
@@ -237,34 +295,10 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen>
                       },
                     ),
                   ),
-                  SizedBox(
-                    height: 56,
-                    child: ListView(
-                      scrollDirection: Axis.horizontal,
-                      clipBehavior: Clip.none,
-                      padding: const EdgeInsets.symmetric(vertical: 10),
-                      children: [
-                        _chip(
-                          0,
-                          'La tua posizione',
-                          false,
-                          _locate,
-                          emoji: '📍',
-                          loading: _locating,
-                          keyId: '📍 La tua posizione',
-                        ),
-                        for (var i = 0; i < presets.length; i++)
-                          _chip(
-                            i + 1,
-                            presets[i].name,
-                            presets[i] == selected,
-                            () => _choose(presets[i]),
-                            timesUsed: presets[i].timesUsed,
-                          ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
+                ),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
                     child: _MapFrame(
                       activity: a,
                       child: Stack(
@@ -294,14 +328,16 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen>
                       ),
                     ),
                   ),
-                  const SizedBox(height: 18),
-                  _LaunchButton(
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
+                  child: _LaunchButton(
                     label: a.launchCta,
                     enabled: selected != null,
                     onPressed: () => context.push('/launched'),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
             // Risultati di ricerca: sopra a tutto, sotto la barra.
             if (searching)
@@ -323,34 +359,6 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen>
               ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _chip(
-    int index,
-    String label,
-    bool selected,
-    VoidCallback onTap, {
-    int timesUsed = 0,
-    String? emoji,
-    bool loading = false,
-    String? keyId,
-  }) {
-    return StaggeredEntrance(
-      index: index,
-      step: const Duration(milliseconds: 30),
-      offset: const Offset(-12, 0),
-      fromScale: 0.9,
-      child: _PlaceChip(
-        label: label,
-        selected: selected,
-        dashed: index == 0, // "La tua posizione": tratteggio, come Bho
-        timesUsed: timesUsed,
-        emoji: emoji,
-        loading: loading,
-        keyId: keyId,
-        onTap: onTap,
       ),
     );
   }
@@ -403,12 +411,16 @@ class _Header extends StatelessWidget {
 /// Barra di ricerca: bianca, raggio 22, ombra piena morbida.
 class _SearchBar extends StatelessWidget {
   const _SearchBar({
+    required this.locating,
+    required this.onOpenPlaces,
     required this.controller,
     required this.focusNode,
     required this.onChanged,
     required this.onClear,
   });
 
+  final bool locating;
+  final VoidCallback onOpenPlaces;
   final TextEditingController controller;
   final FocusNode focusNode;
   final ValueChanged<String> onChanged;
@@ -416,6 +428,16 @@ class _SearchBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(child: _field()),
+        const SizedBox(width: 8),
+        _PlacesButton(locating: locating, onTap: onOpenPlaces),
+      ],
+    );
+  }
+
+  Widget _field() {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: AppColors.white,
@@ -432,7 +454,7 @@ class _SearchBar extends StatelessWidget {
           fontWeight: FontWeight.w500,
         ),
         decoration: InputDecoration(
-          hintText: 'Cerca un locale, indirizzo, piazza…',
+          hintText: 'Cerca un posto…',
           hintStyle: const TextStyle(color: AppColors.muted),
           prefixIcon: const Icon(Icons.search, color: AppColors.muted),
           suffixIcon: controller.text.isEmpty
@@ -444,6 +466,52 @@ class _SearchBar extends StatelessWidget {
                 ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(vertical: 16),
+        ),
+      ),
+    );
+  }
+}
+
+/// Pulsante solo icona (mappa): apre l'elenco dei luoghi.
+class _PlacesButton extends StatelessWidget {
+  const _PlacesButton({required this.locating, required this.onTap});
+
+  final bool locating;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Luoghi',
+      child: PressScale(
+        child: GestureDetector(
+          key: const ValueKey('open-places'),
+          onTap: onTap,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              color: AppColors.nightBlue,
+              borderRadius: BorderRadius.circular(22),
+            ),
+            child: Center(
+              child: locating
+                  ? const SizedBox.square(
+                      dimension: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: AppColors.cream,
+                      ),
+                    )
+                  : const Icon(
+                      Icons.map_outlined,
+                      color: AppColors.cream,
+                      size: 24,
+                    ),
+            ),
+          ),
         ),
       ),
     );
@@ -650,117 +718,6 @@ class _CtaLabelState extends State<_CtaLabel>
           ),
         ],
       ],
-    );
-  }
-}
-
-/// Chip a pillola come "📅 Impegni": il selezionato è blu notte.
-/// "La tua posizione": crema con bordo tratteggiato, come Bho.
-class _PlaceChip extends StatelessWidget {
-  const _PlaceChip({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.dashed = false,
-    this.timesUsed = 0,
-    this.emoji,
-    this.loading = false,
-    this.keyId,
-  });
-
-  final String label;
-  final bool selected;
-  final bool dashed;
-  final VoidCallback onTap;
-
-  /// Emoji davanti al testo (es. 📍); con [loading] diventa una rotellina.
-  final String? emoji;
-  final bool loading;
-
-  /// Chiave del chip se diversa dal [label] (resta stabile mentre carica).
-  final String? keyId;
-
-  /// Se > 0 compare un piccolo "×N" (quante volte è stato scelto).
-  final int timesUsed;
-
-  @override
-  Widget build(BuildContext context) {
-    final fill = dashed
-        ? AppColors.cream
-        : (selected ? AppColors.nightBlue : AppColors.white);
-    final chip = CustomPaint(
-      foregroundPainter: dashed
-          ? const DashedBorderPainter(
-              color: AppColors.nightBlue,
-              radius: 20,
-              strokeWidth: 2,
-              dash: 6,
-              gap: 4,
-            )
-          : null,
-      child: AnimatedContainer(
-        duration: Motion.of(context, Motion.fast),
-        curve: Curves.easeOut,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
-        decoration: BoxDecoration(
-          color: fill,
-          borderRadius: BorderRadius.circular(22),
-          boxShadow: (dashed || selected) ? null : const [_softShadow],
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (loading) ...[
-              const SizedBox(
-                width: 14,
-                height: 14,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: AppColors.nightBlue,
-                ),
-              ),
-              const SizedBox(width: 8),
-            ] else if (emoji != null) ...[
-              Text(emoji!, style: const TextStyle(fontSize: 13)),
-              const SizedBox(width: 6),
-            ],
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-                color: selected && !dashed
-                    ? AppColors.cream
-                    : AppColors.nightBlue,
-              ),
-            ),
-            if (timesUsed > 0) ...[
-              const SizedBox(width: 6),
-              Text(
-                '×$timesUsed',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: selected && !dashed
-                      ? AppColors.acidGreen
-                      : AppColors.muted,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-    return Padding(
-      padding: const EdgeInsets.only(right: 10),
-      child: PressScale(
-        child: GestureDetector(
-          key: ValueKey('chip:${keyId ?? label}'),
-          behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: chip,
-        ),
-      ),
     );
   }
 }
