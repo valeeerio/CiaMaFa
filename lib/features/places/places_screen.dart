@@ -13,6 +13,9 @@ import '../../shared/dashed_border.dart';
 import '../../shared/press_effects.dart';
 import '../../shared/staggered_entrance.dart';
 import '../plans/activity.dart';
+import '../plans/launched_screen.dart';
+import '../plans/plans_provider.dart';
+import '../plans/plans_repository.dart';
 import 'camera_animator.dart';
 import 'location_service.dart';
 import 'place_candidate.dart';
@@ -48,6 +51,7 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen>
   LatLng _center = bitetto;
   bool _fitted = false;
   bool _locating = false;
+  bool _launching = false;
 
   /// Posizione dell'utente, se già trovata: le distanze dell'elenco partono da qui.
 
@@ -208,6 +212,84 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen>
     }
   }
 
+  /// Lancia il piano. Se hai già piani attivi chiede conferma; se un amico ha
+  /// già proposto lo stesso posto oggi porta al suo piano; se fallisce, dice
+  /// perché e offre "Riprova".
+  Future<void> _launch({bool confirmExtra = false}) async {
+    final place = ref.read(placeSelectionProvider);
+    if (place == null || _launching) return;
+    setState(() => _launching = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+    try {
+      final result = await ref
+          .read(plansRepositoryProvider)
+          .launch(
+            activity: _activity,
+            place: place,
+            confirmExtra: confirmExtra,
+          );
+      if (!mounted) return;
+      setState(() => _launching = false);
+      switch (result) {
+        case Launched(:final placeName):
+          ref.invalidate(suggestedPlacesProvider);
+          router.go(
+            '/launched',
+            extra: LaunchedInfo(activity: _activity, placeName: placeName),
+          );
+        case DuplicatePlan():
+          messenger
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              const SnackBar(
+                content: Text('Questo posto è già stato proposto oggi.'),
+              ),
+            );
+          unawaited(router.push('/plans'));
+        case NeedsConfirmation():
+          if (await _confirmExtraPlan() && mounted) {
+            await _launch(confirmExtra: true);
+          }
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _launching = false);
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: const Text('Non sono riuscito a lanciare il piano.'),
+            action: SnackBarAction(
+              label: 'Riprova',
+              onPressed: () => _launch(confirmExtra: confirmExtra),
+            ),
+          ),
+        );
+    }
+  }
+
+  Future<bool> _confirmExtraPlan() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hai già un piano per oggi'),
+        content: const Text('Lanciare anche questo?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Annulla'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Lancia lo stesso'),
+          ),
+        ],
+      ),
+    );
+    return ok ?? false;
+  }
+
   Future<void> _openPlaces() async {
     _searchFocus.unfocus();
     final choice = await showPlaceListSheet(
@@ -333,8 +415,8 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen>
                   padding: const EdgeInsets.fromLTRB(24, 12, 24, 16),
                   child: _LaunchButton(
                     label: a.launchCta,
-                    enabled: selected != null,
-                    onPressed: () => context.push('/launched'),
+                    enabled: selected != null && !_launching,
+                    onPressed: _launch,
                   ),
                 ),
               ],

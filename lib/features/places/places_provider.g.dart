@@ -210,7 +210,7 @@ final class SuggestedPlacesProvider
   }
 }
 
-String _$suggestedPlacesHash() => r'9c8ce6b148255289e86a44eac5275e963c713954';
+String _$suggestedPlacesHash() => r'bee4bcaec285b3d74fda7e2950cf54f97738a26b';
 
 /// Preset per l'attività: luoghi più usati dal gruppo.
 

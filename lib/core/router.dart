@@ -6,6 +6,7 @@ import '../features/home/home_screen.dart';
 import '../features/onboarding/onboarding_provider.dart';
 import '../features/onboarding/onboarding_screen.dart';
 import '../features/places/places_screen.dart';
+import '../features/plans/launched_screen.dart';
 import '../shared/placeholder_screen.dart';
 import '../shared/route_transitions.dart';
 
@@ -47,14 +48,15 @@ GoRouter router(Ref ref) {
           child: PlacesScreen(activityId: state.pathParameters['activityId']!),
         ),
       ),
-      // Segnaposto: piano lanciato (Fase 4), piani di oggi (Fase 5), profilo (Fase 7).
       GoRoute(
         path: '/launched',
-        builder: (context, state) => const PlaceholderScreen(
-          title: 'Piano lanciato!',
-          subtitle: 'Fase 4',
-        ),
+        // Senza i dati del lancio (es. riapertura) non c'è nulla da mostrare.
+        redirect: (context, state) =>
+            state.extra is LaunchedInfo ? null : '/home',
+        builder: (context, state) =>
+            LaunchedScreen(info: state.extra! as LaunchedInfo),
       ),
+      // Segnaposto: piani di oggi (Fase 5), profilo (Fase 7).
       GoRoute(
         path: '/plans',
         builder: (context, state) =>

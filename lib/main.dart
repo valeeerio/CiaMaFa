@@ -5,6 +5,7 @@ import 'core/constants.dart';
 import 'core/router.dart';
 import 'core/supabase_client.dart';
 import 'core/theme.dart';
+import 'features/plans/plan_banner_host.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +30,7 @@ class CiaMaFaApp extends ConsumerWidget {
       title: 'CiaMaFa',
       theme: buildAppTheme(),
       routerConfig: ref.watch(routerProvider),
+      builder: (context, child) => PlanBannerHost(child: child!),
       debugShowCheckedModeBanner: false,
     );
   }
