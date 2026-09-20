@@ -67,7 +67,7 @@ void main() {
   });
 
   group('parseAnnouncement', () {
-    test('reads nickname, activity and place from the joined row', () {
+    test('new plan: who launched what and where', () {
       final a = SupabasePlansRepository.parseAnnouncement({
         'id': 'p1',
         'emoji': '🍻',
@@ -76,8 +76,8 @@ void main() {
         'places': {'name': 'Pineta'},
       });
       expect(
-        (a.planId, a.nickname, a.emoji, a.label, a.placeName),
-        ('p1', 'Marco', '🍻', 'Bar', 'Pineta'),
+        (a.planId, a.title, a.subtitle),
+        ('p1', 'Marco ha lanciato un piano', '🍻 Bar · Pineta'),
       );
     });
 
@@ -89,7 +89,52 @@ void main() {
         'profiles': {'nickname': 'Marco'},
         'places': null,
       });
-      expect(a.placeName, unnamedPlaceName);
+      expect(a.subtitle, '🍻 Bar · $unnamedPlaceName');
+    });
+  });
+
+  group('parseVoteAnnouncement', () {
+    Map<String, dynamic> row(String vote, String creator) => {
+      'vote': vote,
+      'profiles': {'nickname': 'Anna'},
+      'plans': {
+        'creator_id': creator,
+        'emoji': '🍻',
+        'label': 'Bar',
+        'places': {'name': 'Pineta'},
+      },
+    };
+
+    test('a yes on your plan', () {
+      final a = SupabasePlansRepository.parseVoteAnnouncement(
+        'p1',
+        row('yes', 'me'),
+        selfId: 'me',
+      )!;
+      expect(
+        (a.planId, a.title, a.subtitle),
+        ('p1', 'Anna ci sta 🙋', '🍻 Bar · Pineta'),
+      );
+    });
+
+    test('a no on your plan', () {
+      final a = SupabasePlansRepository.parseVoteAnnouncement(
+        'p1',
+        row('no', 'me'),
+        selfId: 'me',
+      )!;
+      expect(a.title, 'Anna non ci sta 😴');
+    });
+
+    test('votes on someone else\'s plan are not for you', () {
+      expect(
+        SupabasePlansRepository.parseVoteAnnouncement(
+          'p1',
+          row('yes', 'other'),
+          selfId: 'me',
+        ),
+        isNull,
+      );
     });
   });
 }

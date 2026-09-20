@@ -10,10 +10,15 @@ import 'activity.dart';
 
 /// Cosa mostra "Piano lanciato!".
 class LaunchedInfo {
-  const LaunchedInfo({required this.activity, required this.placeName});
+  const LaunchedInfo({
+    required this.activity,
+    required this.placeName,
+    required this.planId,
+  });
 
   final Activity activity;
   final String placeName;
+  final String planId;
 }
 
 /// "Piano lanciato!": blu notte, coriandoli, riepilogo e due CTA.
@@ -51,9 +56,10 @@ class _LaunchedScreenState extends State<LaunchedScreen>
   }
 
   void _seePlan() {
-    // Home sotto, così "indietro" dai piani torna alla Home.
+    // Home e lista sotto, così "indietro" dal piano torna alla lista e poi alla Home.
     context.go('/home');
     context.push('/plans');
+    context.push('/plans/${widget.info.planId}');
   }
 
   @override

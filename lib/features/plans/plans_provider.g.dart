@@ -51,12 +51,99 @@ final class PlansRepositoryProvider
 
 String _$plansRepositoryHash() => r'6888874b6dc60fee7b520fcc6092b2fc43eab9f1';
 
-/// Nuovi piani degli altri (solo se hai un profilo e le notifiche attive).
+@ProviderFor(mapLauncher)
+final mapLauncherProvider = MapLauncherProvider._();
+
+final class MapLauncherProvider
+    extends $FunctionalProvider<MapLauncher, MapLauncher, MapLauncher>
+    with $Provider<MapLauncher> {
+  MapLauncherProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'mapLauncherProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$mapLauncherHash();
+
+  @$internal
+  @override
+  $ProviderElement<MapLauncher> $createElement($ProviderPointer pointer) =>
+      $ProviderElement(pointer);
+
+  @override
+  MapLauncher create(Ref ref) {
+    return mapLauncher(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(MapLauncher value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<MapLauncher>(value),
+    );
+  }
+}
+
+String _$mapLauncherHash() => r'29c7ef8e385068d63abb492f69f2d2643e2c6268';
+
+/// Piani di oggi, sempre aggiornati: si ricarica a ogni cambiamento di piani o
+/// voti (Realtime). Ordinati: più "Ci sono" prima, poi i più recenti.
+
+@ProviderFor(livePlans)
+final livePlansProvider = LivePlansProvider._();
+
+/// Piani di oggi, sempre aggiornati: si ricarica a ogni cambiamento di piani o
+/// voti (Realtime). Ordinati: più "Ci sono" prima, poi i più recenti.
+
+final class LivePlansProvider
+    extends
+        $FunctionalProvider<
+          AsyncValue<List<Plan>>,
+          List<Plan>,
+          Stream<List<Plan>>
+        >
+    with $FutureModifier<List<Plan>>, $StreamProvider<List<Plan>> {
+  /// Piani di oggi, sempre aggiornati: si ricarica a ogni cambiamento di piani o
+  /// voti (Realtime). Ordinati: più "Ci sono" prima, poi i più recenti.
+  LivePlansProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'livePlansProvider',
+        isAutoDispose: true,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$livePlansHash();
+
+  @$internal
+  @override
+  $StreamProviderElement<List<Plan>> $createElement($ProviderPointer pointer) =>
+      $StreamProviderElement(pointer);
+
+  @override
+  Stream<List<Plan>> create(Ref ref) {
+    return livePlans(ref);
+  }
+}
+
+String _$livePlansHash() => r'a91634008628b70b405ae2e2aa7f4ac667bba346';
+
+/// Notifiche degli altri (nuovi piani e voti sui tuoi) (solo se hai un profilo e le notifiche attive).
 
 @ProviderFor(planAnnouncements)
 final planAnnouncementsProvider = PlanAnnouncementsProvider._();
 
-/// Nuovi piani degli altri (solo se hai un profilo e le notifiche attive).
+/// Notifiche degli altri (nuovi piani e voti sui tuoi) (solo se hai un profilo e le notifiche attive).
 
 final class PlanAnnouncementsProvider
     extends
@@ -66,7 +153,7 @@ final class PlanAnnouncementsProvider
           Stream<PlanAnnouncement>
         >
     with $FutureModifier<PlanAnnouncement>, $StreamProvider<PlanAnnouncement> {
-  /// Nuovi piani degli altri (solo se hai un profilo e le notifiche attive).
+  /// Notifiche degli altri (nuovi piani e voti sui tuoi) (solo se hai un profilo e le notifiche attive).
   PlanAnnouncementsProvider._()
     : super(
         from: null,

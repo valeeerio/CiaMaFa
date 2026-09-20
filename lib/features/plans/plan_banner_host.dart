@@ -45,13 +45,13 @@ class PlanBannerHost extends ConsumerWidget {
                         key: ValueKey(announcement.planId),
                         type: MaterialType.transparency,
                         child: NotificationBanner(
-                          title:
-                              '${announcement.nickname} ha lanciato un piano',
-                          subtitle:
-                              '${announcement.emoji} ${announcement.label} · ${announcement.placeName}',
+                          title: announcement.title,
+                          subtitle: announcement.subtitle,
                           onTap: () {
                             ref.read(planBannerProvider.notifier).dismiss();
-                            ref.read(routerProvider).push('/plans');
+                            ref
+                                .read(routerProvider)
+                                .push('/plans/${announcement.planId}');
                           },
                           onClose: () =>
                               ref.read(planBannerProvider.notifier).dismiss(),

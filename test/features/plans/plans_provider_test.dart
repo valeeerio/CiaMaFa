@@ -14,10 +14,8 @@ class MockPlans extends Mock implements PlansRepository {}
 
 const _ann = PlanAnnouncement(
   planId: 'p1',
-  nickname: 'Marco',
-  emoji: '🍻',
-  label: 'Bar',
-  placeName: 'Pineta',
+  title: 'Marco ha lanciato un piano',
+  subtitle: '🍻 Bar · Pineta',
 );
 
 void main() {
@@ -62,7 +60,7 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 20));
     feed.add(_ann);
     await Future<void>.delayed(const Duration(milliseconds: 20));
-    expect(c.read(planBannerProvider)?.nickname, 'Marco');
+    expect(c.read(planBannerProvider)?.title, 'Marco ha lanciato un piano');
 
     c.read(planBannerProvider.notifier).dismiss();
     expect(c.read(planBannerProvider), isNull);
@@ -78,10 +76,8 @@ void main() {
     feed.add(
       const PlanAnnouncement(
         planId: 'p2',
-        nickname: 'Anna',
-        emoji: '🍽️',
-        label: 'Mangiare',
-        placeName: 'Frida',
+        title: 'Anna ci sta 🙋',
+        subtitle: '🍽️ Mangiare · Frida',
       ),
     );
     await Future<void>.delayed(const Duration(milliseconds: 20));

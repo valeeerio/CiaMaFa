@@ -6,7 +6,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 void main() {
-  final info = LaunchedInfo(activity: activityById('bar'), placeName: 'Pineta');
+  final info = LaunchedInfo(
+    activity: activityById('bar'),
+    placeName: 'Pineta',
+    planId: 'p1',
+  );
 
   Future<GoRouter> pump(WidgetTester tester, {bool reduced = false}) async {
     final router = GoRouter(
@@ -24,6 +28,11 @@ void main() {
         GoRoute(
           path: '/plans',
           builder: (context, state) => const Text('PIANI'),
+        ),
+        GoRoute(
+          path: '/plans/:id',
+          builder: (context, state) =>
+              Text('PIANO ${state.pathParameters['id']}'),
         ),
       ],
     );
@@ -84,15 +93,19 @@ void main() {
     expect(find.text('HOME'), findsOneWidget);
   });
 
-  testWidgets('"Vedi piano" opens the plans with Home underneath', (
-    tester,
-  ) async {
-    final router = await pump(tester);
-    await tester.tap(find.text('Vedi piano'));
-    await tester.pumpAndSettle();
-    expect(find.text('PIANI'), findsOneWidget);
-    router.pop();
-    await tester.pumpAndSettle();
-    expect(find.text('HOME'), findsOneWidget);
-  });
+  testWidgets(
+    '"Vedi piano" opens the new plan, with list and Home underneath',
+    (tester) async {
+      final router = await pump(tester);
+      await tester.tap(find.text('Vedi piano'));
+      await tester.pumpAndSettle();
+      expect(find.text('PIANO p1'), findsOneWidget);
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(find.text('PIANI'), findsOneWidget);
+      router.pop();
+      await tester.pumpAndSettle();
+      expect(find.text('HOME'), findsOneWidget);
+    },
+  );
 }

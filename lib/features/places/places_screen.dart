@@ -11,6 +11,7 @@ import '../../core/motion.dart';
 import '../../core/theme.dart';
 import '../../shared/dashed_border.dart';
 import '../../shared/press_effects.dart';
+import '../../shared/screen_header.dart';
 import '../../shared/staggered_entrance.dart';
 import '../plans/activity.dart';
 import '../plans/launched_screen.dart';
@@ -232,13 +233,17 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen>
       if (!mounted) return;
       setState(() => _launching = false);
       switch (result) {
-        case Launched(:final placeName):
+        case Launched(:final placeName, :final planId):
           ref.invalidate(suggestedPlacesProvider);
           router.go(
             '/launched',
-            extra: LaunchedInfo(activity: _activity, placeName: placeName),
+            extra: LaunchedInfo(
+              activity: _activity,
+              placeName: placeName,
+              planId: planId,
+            ),
           );
-        case DuplicatePlan():
+        case DuplicatePlan(:final planId):
           messenger
             ..hideCurrentSnackBar()
             ..showSnackBar(
@@ -247,6 +252,7 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen>
               ),
             );
           unawaited(router.push('/plans'));
+          unawaited(router.push('/plans/$planId'));
         case NeedsConfirmation():
           if (await _confirmExtraPlan() && mounted) {
             await _launch(confirmExtra: true);
@@ -353,7 +359,10 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen>
               children: [
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
-                  child: _Header(onBack: () => context.pop()),
+                  child: ScreenHeader(
+                    title: 'Dove?',
+                    onBack: () => context.pop(),
+                  ),
                 ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(24, 14, 24, 0),
@@ -442,50 +451,6 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen>
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Testata simmetrica: freccia a sinistra, "Dove?" al centro, spazio vuoto a
-/// destra della stessa larghezza della freccia.
-class _Header extends StatelessWidget {
-  const _Header({required this.onBack});
-
-  final VoidCallback onBack;
-
-  static const _side = 44.0;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Semantics(
-          button: true,
-          label: 'Indietro',
-          child: PressScale(
-            child: GestureDetector(
-              onTap: onBack,
-              behavior: HitTestBehavior.opaque,
-              child: const CircleAvatar(
-                radius: _side / 2,
-                backgroundColor: AppColors.nightBlue,
-                child: Icon(Icons.arrow_back, color: AppColors.cream, size: 20),
-              ),
-            ),
-          ),
-        ),
-        Expanded(
-          child: Semantics(
-            header: true,
-            child: Text(
-              'Dove?',
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineLarge,
-            ),
-          ),
-        ),
-        const SizedBox(width: _side),
-      ],
     );
   }
 }

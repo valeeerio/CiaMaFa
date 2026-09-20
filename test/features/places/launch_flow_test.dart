@@ -80,6 +80,11 @@ void main() {
           builder: (context, state) => const Scaffold(body: Text('PIANI')),
         ),
         GoRoute(path: '/home', builder: (context, state) => const Text('HOME')),
+        GoRoute(
+          path: '/plans/:id',
+          builder: (context, state) =>
+              Scaffold(body: Text('PIANO ${state.pathParameters['id']}')),
+        ),
       ],
     );
     addTearDown(router.dispose);
@@ -180,14 +185,15 @@ void main() {
     expectLaunchCalled(confirmExtra: true);
   });
 
-  testWidgets('a friend already proposed it: no launch, you see the plans', (
+  testWidgets('a friend already proposed it: no launch, you see that plan', (
     tester,
   ) async {
     launchReturns(const DuplicatePlan('p9'));
     await pump(tester);
     await tapLaunch(tester);
 
-    expect(find.text('PIANI'), findsOneWidget);
+    // Lista sotto, piano dell'amico sopra.
+    expect(find.text('PIANO p9'), findsOneWidget);
     expect(
       find.text('Questo posto è già stato proposto oggi.'),
       findsOneWidget,

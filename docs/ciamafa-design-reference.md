@@ -81,8 +81,9 @@ Sfondo blu notte, confetti animati, icona 🎉, titolo "Piano lanciato!", riepil
 ### 5. Piani di oggi
 Back + titolo. Stato vuoto: 🫥 "Nessun piano per oggi." + CTA "Lancia il primo? 🚀".
 Stato pieno: lista card (emoji, label · luogo, "di {creatore} · {ora}",
-conteggio "🙋 N · 😴 N"), tap apre Dettaglio. Link in fondo "Cercavi un piano di
-ieri sera? Sparisce a mezzanotte 🕛" → mostra stato "piano scaduto" demo.
+conteggio "🙋 N · 😴 N"), tap apre Dettaglio. Ordine: più "Ci sono" prima, poi i
+più recenti; si aggiorna in tempo reale. Il link "Cercavi un piano di ieri sera?"
+del prototipo è stato tolto.
 
 **Regola di business:** i piani scadono/spariscono a mezzanotte.
 
@@ -91,7 +92,8 @@ Due stati: `cpFound` (piano esiste) e `cpNotFound` (scaduto/eliminato → scherm
 "⏳ Questo piano non c'è più" con CTA per tornare ai piani).
 
 Stato trovato: back + eyebrow "Proposto da {creatore}", titolo "{emoji} {label}",
-mappa mini stilizzata, card luogo + orario. Due pulsanti voto "Ci sono 🙋" /
+mini mappa reale non interattiva col pin (tocco → app di mappe), card luogo + orario.
+Il creatore conta già come "Ci sono". Due pulsanti voto "Ci sono 🙋" /
 "Non ci sono 😴" con stato attivo (bg blu notte, check ✓ se già votato — toggle:
 ritoccare rimuove il voto). Liste chip dei nomi votanti per sì/no (empty state
 "Nessuno ancora."). Solo il creatore vede "Elimina piano" (conferma via modale,

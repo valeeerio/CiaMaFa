@@ -4,12 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-import '../../core/constants.dart';
 import '../../core/motion.dart';
 import '../../core/theme.dart';
 import '../../shared/map_pin.dart';
 import '../../shared/staggered_entrance.dart';
-import 'map_style.dart';
+import 'map_tiles.dart';
 import 'place_candidate.dart';
 import 'place_clusters.dart';
 import 'place_style.dart';
@@ -64,17 +63,6 @@ class PlacesMap extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final carto = Env.cartoApiKey.isNotEmpty;
-    final style = mapStyleFor(MediaQuery.platformBrightnessOf(context));
-    final tiles = TileLayer(
-      urlTemplate: carto
-          ? 'https://{s}.basemaps.cartocdn.com/rastertiles/${style.cartoStyle}/{z}/{x}/{y}{r}.png?key=${Env.cartoApiKey}'
-          : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-      subdomains: carto ? const ['a', 'b', 'c', 'd'] : const ['a', 'b', 'c'],
-      retinaMode: carto && RetinaMode.isHighDensity(context),
-      maxNativeZoom: carto ? 20 : 19,
-      userAgentPackageName: 'com.valeriomortella.ciamafa',
-    );
     return FlutterMap(
       mapController: controller,
       options: MapOptions(
@@ -86,7 +74,7 @@ class PlacesMap extends StatelessWidget {
         onPositionChanged: (camera, _) => onCenterChanged(camera.center),
       ),
       children: [
-        carto ? ColorFiltered(colorFilter: style.filter, child: tiles) : tiles,
+        const MapTiles(),
         _PresetLayer(
           presets: [
             for (final p in presets)

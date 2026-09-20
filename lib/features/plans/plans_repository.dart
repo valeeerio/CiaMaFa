@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../core/constants.dart';
 import '../places/place_candidate.dart';
 import 'activity.dart';
+import 'plan.dart';
 
 /// Nome del luogo nel piano quando non c'è una via né un nome.
 const unnamedPlaceName = 'Punto sulla mappa';
@@ -36,21 +36,17 @@ final class NeedsConfirmation extends LaunchResult {
   final int activeCount;
 }
 
-/// Un nuovo piano lanciato da un altro membro del gruppo.
+/// Una notifica in-app (banner): nuovo piano di un amico o voto sul tuo piano.
 class PlanAnnouncement {
   const PlanAnnouncement({
     required this.planId,
-    required this.nickname,
-    required this.emoji,
-    required this.label,
-    required this.placeName,
+    required this.title,
+    required this.subtitle,
   });
 
   final String planId;
-  final String nickname;
-  final String emoji;
-  final String label;
-  final String placeName;
+  final String title;
+  final String subtitle;
 }
 
 abstract interface class PlansRepository {
@@ -62,7 +58,21 @@ abstract interface class PlansRepository {
     bool confirmExtra = false,
   });
 
-  /// Nuovi piani degli ALTRI membri, in tempo reale (app aperta).
+  /// Piani di oggi con i loro voti (la RLS nasconde quelli scaduti).
+  Future<List<Plan>> todaysPlans();
+
+  /// Imposta il tuo voto su [planId]; `null` lo toglie.
+  Future<void> setVote({
+    required String planId,
+    required String profileId,
+    required VoteChoice? choice,
+  });
+
+  /// Emette a ogni cambiamento di piani o voti (Realtime, app aperta).
+  Stream<void> changes();
+
+  /// Notifiche in tempo reale per [selfId]: nuovi piani degli ALTRI e voti degli
+  /// altri sui TUOI piani.
   Stream<PlanAnnouncement> announcements({required String selfId});
 }
 
@@ -113,41 +123,69 @@ class SupabasePlansRepository implements PlansRepository {
         final other => throw FormatException('Esito sconosciuto: $other'),
       };
 
+  static const _planSelect =
+      'id, activity_id, emoji, label, creator_id, created_at, '
+      'profiles!plans_creator_id_fkey(nickname), '
+      'places(name, address, lat, lng), '
+      'votes(profile_id, vote, profiles(nickname))';
+
   @override
-  Stream<PlanAnnouncement> announcements({required String selfId}) {
-    late final StreamController<PlanAnnouncement> controller;
-    RealtimeChannel? channel;
+  Future<List<Plan>> todaysPlans() async {
+    final rows = await _client
+        .from('plans')
+        .select(_planSelect)
+        .order('created_at', ascending: false);
+    return sortPlans([for (final r in rows) Plan.fromRow(r)]);
+  }
 
-    Future<void> onInsert(Map<String, dynamic> row) async {
-      if (row['creator_id'] == selfId) return;
-      try {
-        final full = await _client
-            .from('plans')
-            .select('id, emoji, label, profiles(nickname), places(name)')
-            .eq('id', row['id'] as String)
-            .single();
-        controller.add(parseAnnouncement(full));
-      } catch (_) {
-        // Il banner è un di più: se il dettaglio non arriva, niente banner.
-      }
+  @override
+  Future<void> setVote({
+    required String planId,
+    required String profileId,
+    required VoteChoice? choice,
+  }) async {
+    if (choice == null) {
+      await _client
+          .from('votes')
+          .delete()
+          .eq('plan_id', planId)
+          .eq('profile_id', profileId);
+    } else {
+      await _client.from('votes').upsert({
+        'plan_id': planId,
+        'profile_id': profileId,
+        'vote': choice.name,
+      }, onConflict: 'plan_id,profile_id');
     }
+  }
 
-    controller = StreamController<PlanAnnouncement>(
+  /// Canale Realtime con listener su [tables]; [onEvent] riceve la riga nuova.
+  Stream<T> _realtime<T>(
+    String name,
+    Map<String, PostgresChangeEvent> tables,
+    Future<T?> Function(String table, Map<String, dynamic> row) onEvent,
+  ) {
+    late final StreamController<T> controller;
+    RealtimeChannel? channel;
+    controller = StreamController<T>(
       onListen: () {
-        channel = _client
-            .channel('new-plans')
-            .onPostgresChanges(
-              event: PostgresChangeEvent.insert,
-              schema: 'public',
-              table: 'plans',
-              filter: PostgresChangeFilter(
-                type: PostgresChangeFilterType.eq,
-                column: 'group_id',
-                value: defaultGroupId,
-              ),
-              callback: (payload) => onInsert(payload.newRecord),
-            )
-            .subscribe();
+        var c = _client.channel(name);
+        tables.forEach((table, event) {
+          c = c.onPostgresChanges(
+            event: event,
+            schema: 'public',
+            table: table,
+            callback: (payload) async {
+              try {
+                final out = await onEvent(table, payload.newRecord);
+                if (out != null && !controller.isClosed) controller.add(out);
+              } catch (_) {
+                // Realtime è un di più: un evento perso non deve rompere nulla.
+              }
+            },
+          );
+        });
+        channel = c.subscribe();
       },
       onCancel: () async {
         final c = channel;
@@ -157,16 +195,78 @@ class SupabasePlansRepository implements PlansRepository {
     return controller.stream;
   }
 
-  /// Da una riga `plans` con `profiles(nickname)` e `places(name)` incorporati.
-  static PlanAnnouncement parseAnnouncement(Map<String, dynamic> row) =>
-      PlanAnnouncement(
-        planId: row['id'] as String,
-        nickname:
-            (row['profiles'] as Map<String, dynamic>)['nickname'] as String,
-        emoji: row['emoji'] as String,
-        label: row['label'] as String,
-        placeName:
-            ((row['places'] as Map<String, dynamic>?)?['name'] as String?) ??
-            unnamedPlaceName,
-      );
+  @override
+  Stream<void> changes() => _realtime<void>('plans-live', const {
+    'plans': PostgresChangeEvent.all,
+    'votes': PostgresChangeEvent.all,
+  }, (table, row) async => true).map((_) {});
+
+  @override
+  Stream<PlanAnnouncement> announcements({required String selfId}) => _realtime(
+    'notifications',
+    const {
+      'plans': PostgresChangeEvent.insert,
+      'votes': PostgresChangeEvent.all,
+    },
+    (table, row) async {
+      if (table == 'plans') {
+        if (row['creator_id'] == selfId) return null;
+        final full = await _client
+            .from('plans')
+            .select(
+              'id, emoji, label, profiles!plans_creator_id_fkey(nickname), places(name)',
+            )
+            .eq('id', row['id'] as String)
+            .single();
+        return parseAnnouncement(full);
+      }
+      // Voti: solo quelli degli altri sui tuoi piani (i delete non hanno dati).
+      final planId = row['plan_id'] as String?;
+      final voterId = row['profile_id'] as String?;
+      if (planId == null || voterId == null || voterId == selfId) return null;
+      final full = await _client
+          .from('votes')
+          .select(
+            'vote, profiles(nickname), plans(creator_id, emoji, label, places(name))',
+          )
+          .eq('plan_id', planId)
+          .eq('profile_id', voterId)
+          .single();
+      return parseVoteAnnouncement(planId, full, selfId: selfId);
+    },
+  );
+
+  /// Da una riga `plans` con creatore e luogo incorporati.
+  static PlanAnnouncement parseAnnouncement(
+    Map<String, dynamic> row,
+  ) => PlanAnnouncement(
+    planId: row['id'] as String,
+    title:
+        '${(row['profiles'] as Map<String, dynamic>)['nickname']} ha lanciato un piano',
+    subtitle: _subtitle(row),
+  );
+
+  /// Da una riga `votes` con votante e piano incorporati; `null` se il piano non
+  /// è tuo.
+  static PlanAnnouncement? parseVoteAnnouncement(
+    String planId,
+    Map<String, dynamic> row, {
+    required String selfId,
+  }) {
+    final plan = row['plans'] as Map<String, dynamic>;
+    if (plan['creator_id'] != selfId) return null;
+    final nick = (row['profiles'] as Map<String, dynamic>)['nickname'];
+    return PlanAnnouncement(
+      planId: planId,
+      title: row['vote'] == 'yes' ? '$nick ci sta 🙋' : '$nick non ci sta 😴',
+      subtitle: _subtitle(plan),
+    );
+  }
+
+  static String _subtitle(Map<String, dynamic> planRow) {
+    final place =
+        ((planRow['places'] as Map<String, dynamic>?)?['name'] as String?) ??
+        unnamedPlaceName;
+    return '${planRow['emoji']} ${planRow['label']} · $place';
+  }
 }

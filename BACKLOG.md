@@ -13,8 +13,9 @@ Riferimento UX: `docs/ciamafa-design-reference.md`. Ogni fase verrà dettagliata
 - [x] **Fase 4: Lancio piano + notifica push simulata/reale**
   Creazione del piano, schermata "Piano lanciato!", banner di notifica in-app simulato. Funzione `launch_plan` (RPC): salva il luogo se nuovo, fonde i punti entro ~30 m da uno esistente (luoghi senza `external_id`), crea il piano. I punti li aggiornano già i trigger su `plans`/`votes` (Fase 3).
   Fatto: `launch_plan` (esiti `launched` / `duplicate` → porta al piano dell'amico / `needs_confirmation` se hai già piani oggi), "Piano lanciato!" con coriandoli, banner "nuovo piano" degli amici via Realtime (solo app aperta; le push vere restano Fase 8). "Vedi piano" porta ai Piani di oggi, ancora segnaposto fino alla Fase 5.
-- [ ] **Fase 5: Piani di oggi + Dettaglio proposta + voti**
+- [x] **Fase 5: Piani di oggi + Dettaglio proposta + voti**
   Lista piani di oggi, dettaglio (trovato / non c'è più), voti "Ci sono" / "Non ci sono" con toggle.
+  Fatto: ordine per più "Ci sono" poi più recenti, aggiornamento Realtime (piani e voti), il creatore vota "Ci sono" in automatico (`launch_plan`), banner anche per i voti sui tuoi piani, mini mappa nel dettaglio (tocco → app di mappe). Senza "Elimina piano" (Fase 6).
 - [ ] **Fase 6: Eliminazione piano**
   Solo il creatore, con modale di conferma e notifica di annullamento al gruppo.
 - [ ] **Fase 7: Profilo**

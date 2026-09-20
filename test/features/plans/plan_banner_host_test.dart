@@ -7,10 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _ann = PlanAnnouncement(
   planId: 'p1',
-  nickname: 'Marco',
-  emoji: '🍻',
-  label: 'Bar',
-  placeName: 'Pineta',
+  title: 'Marco ha lanciato un piano',
+  subtitle: '🍻 Bar · Pineta',
 );
 
 void main() {
