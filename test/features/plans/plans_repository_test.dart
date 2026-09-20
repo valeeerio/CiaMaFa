@@ -93,6 +93,32 @@ void main() {
     });
   });
 
+  group('parseCancellation', () {
+    test('who cancelled what and where; tap goes to the list', () {
+      final a = SupabasePlansRepository.parseCancellation({
+        'plan_id': 'p1',
+        'creator_nickname': 'Marco',
+        'emoji': '🍻',
+        'label': 'Bar',
+        'place_name': 'Pineta',
+      });
+      expect(a.title, 'Marco ha annullato il piano');
+      expect(a.subtitle, '🍻 Bar · Pineta');
+      expect(a.cancelled, isTrue);
+    });
+
+    test('a plan without place name still reads well', () {
+      final a = SupabasePlansRepository.parseCancellation({
+        'plan_id': 'p1',
+        'creator_nickname': 'Marco',
+        'emoji': '🍻',
+        'label': 'Bar',
+        'place_name': null,
+      });
+      expect(a.subtitle, '🍻 Bar · $unnamedPlaceName');
+    });
+  });
+
   group('parseVoteAnnouncement', () {
     Map<String, dynamic> row(String vote, String creator) => {
       'vote': vote,

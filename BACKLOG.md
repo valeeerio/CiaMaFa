@@ -16,8 +16,9 @@ Riferimento UX: `docs/ciamafa-design-reference.md`. Ogni fase verrà dettagliata
 - [x] **Fase 5: Piani di oggi + Dettaglio proposta + voti**
   Lista piani di oggi, dettaglio (trovato / non c'è più), voti "Ci sono" / "Non ci sono" con toggle.
   Fatto: ordine per più "Ci sono" poi più recenti, aggiornamento Realtime (piani e voti), il creatore vota "Ci sono" in automatico (`launch_plan`), banner anche per i voti sui tuoi piani, mini mappa nel dettaglio (tocco → app di mappe). Senza "Elimina piano" (Fase 6).
-- [ ] **Fase 6: Eliminazione piano**
+- [x] **Fase 6: Eliminazione piano**
   Solo il creatore, con modale di conferma e notifica di annullamento al gruppo.
+  Fatto: "Elimina piano" nel dettaglio e scorrimento della card nella lista (solo i tuoi piani), poi Home con "Piano eliminato". Il trigger su `plans` scrive `plan_cancellations` (solo prima della scadenza) → banner "… ha annullato il piano" via Realtime; i punti li toglie già `plans_points_delete`.
 - [ ] **Fase 7: Profilo**
   Modifica nickname (univocità) e notifiche on/off. Pagina "Crediti" con l'attribuzione della mappa (© OpenStreetMap, © CARTO), tolta dalla schermata del posto su richiesta.
 - [ ] **Fase 8: Push notification reali**

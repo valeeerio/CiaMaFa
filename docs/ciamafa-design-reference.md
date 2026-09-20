@@ -96,8 +96,9 @@ mini mappa reale non interattiva col pin (tocco → app di mappe), card luogo + 
 Il creatore conta già come "Ci sono". Due pulsanti voto "Ci sono 🙋" /
 "Non ci sono 😴" con stato attivo (bg blu notte, check ✓ se già votato — toggle:
 ritoccare rimuove il voto). Liste chip dei nomi votanti per sì/no (empty state
-"Nessuno ancora."). Solo il creatore vede "Elimina piano" (conferma via modale,
-notifica di annullamento simulata al gruppo).
+"Nessuno ancora."). Solo il creatore vede "Elimina piano" (conferma via modale:
+"Il gruppo verrà avvisato e i voti andranno persi."; anche scorrendo la card nella lista;
+banner "… ha annullato il piano" agli amici; poi Home con "Piano eliminato").
 
 ### 7. Profilo
 Back + titolo. Avatar + nickname corrente. Sezione modifica nickname (stesso

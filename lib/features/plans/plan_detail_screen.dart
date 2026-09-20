@@ -10,6 +10,7 @@ import '../../shared/screen_header.dart';
 import '../onboarding/onboarding_provider.dart';
 import '../places/map_tiles.dart';
 import 'plan.dart';
+import 'plan_delete_dialog.dart';
 import 'plans_provider.dart';
 
 /// Dettaglio di un piano: chi l'ha proposto, dove, e i voti "Ci sono" /
@@ -55,6 +56,31 @@ class _PlanDetailScreenState extends ConsumerState<PlanDetailScreen> {
     }
   }
 
+  Future<void> _delete(Plan plan) async {
+    if (_voting || !await confirmDeletePlan(context) || !mounted) return;
+    setState(() => _voting = true);
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+    try {
+      await ref.read(plansRepositoryProvider).deletePlan(plan.id);
+      ref.invalidate(livePlansProvider);
+      router.go('/home');
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(const SnackBar(content: Text('Piano eliminato')));
+    } catch (_) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Non sono riuscito a eliminare il piano.'),
+          ),
+        );
+    } finally {
+      if (mounted) setState(() => _voting = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final plans = ref.watch(livePlansProvider);
@@ -72,6 +98,7 @@ class _PlanDetailScreenState extends ConsumerState<PlanDetailScreen> {
               voting: _voting,
               onBack: _back,
               onVote: (c) => _vote(p, c),
+              onDelete: () => _delete(p),
             ),
             (_, AsyncError()) => Column(
               children: [
@@ -143,6 +170,7 @@ class _Found extends ConsumerWidget {
     required this.voting,
     required this.onBack,
     required this.onVote,
+    required this.onDelete,
   });
 
   final Plan plan;
@@ -150,6 +178,7 @@ class _Found extends ConsumerWidget {
   final bool voting;
   final VoidCallback onBack;
   final ValueChanged<VoteChoice> onVote;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -218,6 +247,19 @@ class _Found extends ConsumerWidget {
           votes: plan.voters(VoteChoice.no),
           myId: myId,
         ),
+        // Solo chi ha lanciato il piano può eliminarlo.
+        if (myId != null && plan.creatorId == myId) ...[
+          const SizedBox(height: 28),
+          Center(
+            child: TextButton.icon(
+              key: const ValueKey('delete-plan'),
+              onPressed: voting ? null : onDelete,
+              icon: const Icon(Icons.delete_outline),
+              label: const Text('Elimina piano'),
+              style: TextButton.styleFrom(foregroundColor: AppColors.coralText),
+            ),
+          ),
+        ],
       ],
     );
   }

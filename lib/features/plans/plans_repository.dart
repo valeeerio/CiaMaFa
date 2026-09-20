@@ -42,11 +42,15 @@ class PlanAnnouncement {
     required this.planId,
     required this.title,
     required this.subtitle,
+    this.cancelled = false,
   });
 
   final String planId;
   final String title;
   final String subtitle;
+
+  /// Piano annullato: non esiste più, il tocco porta alla lista.
+  final bool cancelled;
 }
 
 abstract interface class PlansRepository {
@@ -60,6 +64,10 @@ abstract interface class PlansRepository {
 
   /// Piani di oggi con i loro voti (la RLS nasconde quelli scaduti).
   Future<List<Plan>> todaysPlans();
+
+  /// Elimina un tuo piano (prima della scadenza). Lancia se non è stato
+  /// eliminato (non è tuo o non c'è più).
+  Future<void> deletePlan(String planId);
 
   /// Imposta il tuo voto su [planId]; `null` lo toglie.
   Future<void> setVote({
@@ -139,6 +147,18 @@ class SupabasePlansRepository implements PlansRepository {
   }
 
   @override
+  Future<void> deletePlan(String planId) async {
+    // La RLS lascia eliminare solo i propri piani: senza righe restituite non
+    // è stato eliminato nulla.
+    final deleted = await _client
+        .from('plans')
+        .delete()
+        .eq('id', planId)
+        .select('id');
+    if (deleted.isEmpty) throw StateError('Piano non eliminato');
+  }
+
+  @override
   Future<void> setVote({
     required String planId,
     required String profileId,
@@ -207,8 +227,12 @@ class SupabasePlansRepository implements PlansRepository {
     const {
       'plans': PostgresChangeEvent.insert,
       'votes': PostgresChangeEvent.all,
+      'plan_cancellations': PostgresChangeEvent.insert,
     },
     (table, row) async {
+      if (table == 'plan_cancellations') {
+        return row['creator_id'] == selfId ? null : parseCancellation(row);
+      }
       if (table == 'plans') {
         if (row['creator_id'] == selfId) return null;
         final full = await _client
@@ -244,6 +268,17 @@ class SupabasePlansRepository implements PlansRepository {
     title:
         '${(row['profiles'] as Map<String, dynamic>)['nickname']} ha lanciato un piano',
     subtitle: _subtitle(row),
+  );
+
+  /// Da una riga `plan_cancellations`: "Marco ha annullato il piano".
+  static PlanAnnouncement parseCancellation(
+    Map<String, dynamic> row,
+  ) => PlanAnnouncement(
+    planId: row['plan_id'] as String,
+    title: '${row['creator_nickname']} ha annullato il piano',
+    subtitle:
+        '${row['emoji']} ${row['label']} · ${row['place_name'] ?? unnamedPlaceName}',
+    cancelled: true,
   );
 
   /// Da una riga `votes` con votante e piano incorporati; `null` se il piano non

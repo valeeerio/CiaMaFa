@@ -7,16 +7,63 @@ import '../../shared/dashed_border.dart';
 import '../../shared/press_effects.dart';
 import '../../shared/screen_header.dart';
 import '../../shared/staggered_entrance.dart';
+import '../onboarding/onboarding_provider.dart';
 import 'plan.dart';
+import 'plan_delete_dialog.dart';
 import 'plans_provider.dart';
 
 /// Piani di oggi: più "Ci sono" prima, poi i più recenti. Si aggiorna da solo.
-class PlansScreen extends ConsumerWidget {
+class PlansScreen extends ConsumerStatefulWidget {
   const PlansScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final plans = ref.watch(livePlansProvider);
+  ConsumerState<PlansScreen> createState() => _PlansScreenState();
+}
+
+class _PlansScreenState extends ConsumerState<PlansScreen> {
+  /// Piani appena eliminati con lo scorrimento: spariscono subito, senza
+  /// aspettare il ricaricamento.
+  final _removed = <String>{};
+
+  /// Scorrimento verso sinistra su un tuo piano: conferma, elimina, e la card
+  /// esce. Se non riesce, la card resta e lo dice.
+  Future<bool> _confirmDismiss(Plan plan) async {
+    if (!await confirmDeletePlan(context) || !mounted) return false;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await ref.read(plansRepositoryProvider).deletePlan(plan.id);
+      return true;
+    } catch (_) {
+      messenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Non sono riuscito a eliminare il piano.'),
+          ),
+        );
+      return false;
+    }
+  }
+
+  void _onDismissed(Plan plan) {
+    setState(() => _removed.add(plan.id));
+    ref.invalidate(livePlansProvider);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(const SnackBar(content: Text('Piano eliminato')));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final myId = ref.watch(currentProfileProvider).value?.id;
+    final plans = ref
+        .watch(livePlansProvider)
+        .whenData(
+          (list) => [
+            for (final p in list)
+              if (!_removed.contains(p.id)) p,
+          ],
+        );
     return Scaffold(
       body: SafeArea(
         child: Padding(
@@ -38,13 +85,27 @@ class PlansScreen extends ConsumerWidget {
                     padding: const EdgeInsets.only(bottom: 24),
                     itemCount: value.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 16),
-                    itemBuilder: (context, i) => StaggeredEntrance(
-                      index: i,
-                      child: PlanCard(
-                        plan: value[i],
-                        onTap: () => context.push('/plans/${value[i].id}'),
-                      ),
-                    ),
+                    itemBuilder: (context, i) {
+                      final plan = value[i];
+                      final card = PlanCard(
+                        plan: plan,
+                        onTap: () => context.push('/plans/${plan.id}'),
+                      );
+                      return StaggeredEntrance(
+                        index: i,
+                        // Solo i tuoi piani si possono scorrere via.
+                        child: myId != null && plan.creatorId == myId
+                            ? Dismissible(
+                                key: ValueKey('dismiss:${plan.id}'),
+                                direction: DismissDirection.endToStart,
+                                confirmDismiss: (_) => _confirmDismiss(plan),
+                                onDismissed: (_) => _onDismissed(plan),
+                                background: const _DeleteBackground(),
+                                child: card,
+                              )
+                            : card,
+                      );
+                    },
                   ),
                   AsyncError() => _ErrorState(
                     onRetry: () => ref.invalidate(livePlansProvider),
@@ -54,6 +115,31 @@ class PlansScreen extends ConsumerWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Sfondo che appare scorrendo un tuo piano: corallo con "Elimina".
+class _DeleteBackground extends StatelessWidget {
+  const _DeleteBackground();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      alignment: Alignment.centerRight,
+      padding: const EdgeInsets.only(right: 24),
+      margin: const EdgeInsets.only(bottom: 5),
+      decoration: BoxDecoration(
+        color: AppColors.coral,
+        borderRadius: BorderRadius.circular(22),
+      ),
+      child: const Text(
+        '🗑️ Elimina',
+        style: TextStyle(
+          color: AppColors.nightBlue,
+          fontWeight: FontWeight.w700,
         ),
       ),
     );

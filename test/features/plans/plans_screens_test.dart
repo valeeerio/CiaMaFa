@@ -53,11 +53,14 @@ void main() {
 
   setUpAll(() => registerFallbackValue(VoteChoice.yes));
 
+  final mine = plan('mine', creator: 'Valerio', creatorId: 'me');
+
   setUp(() {
     repo = MockPlans();
     maps = MockMaps();
     current = [];
     when(() => repo.todaysPlans()).thenAnswer((_) async => current);
+    when(() => repo.deletePlan(any())).thenAnswer((_) async {});
     when(() => repo.changes()).thenAnswer((_) => const Stream.empty());
     when(
       () => repo.setVote(
@@ -95,7 +98,10 @@ void main() {
           path: '/plans/:id',
           builder: (_, s) => PlanDetailScreen(planId: s.pathParameters['id']!),
         ),
-        GoRoute(path: '/home', builder: (_, _) => const Text('HOME')),
+        GoRoute(
+          path: '/home',
+          builder: (_, _) => const Scaffold(body: Text('HOME')),
+        ),
       ],
     );
     addTearDown(router.dispose);
@@ -377,6 +383,147 @@ void main() {
       await tester.pump();
       verify(() => maps.open(lat: 41.03797, lng: 16.73744, label: 'Pineta'))
           .called(1);
+    });
+  });
+
+  group('Eliminare un piano', () {
+    testWidgets('only the creator sees "Elimina piano"', (tester) async {
+      current = [plan('p1')]; // di Marco
+      await pump(tester, '/plans/p1');
+      expect(find.byKey(const ValueKey('delete-plan')), findsNothing);
+    });
+
+    testWidgets('the creator sees it and the dialog explains the effect', (
+      tester,
+    ) async {
+      current = [mine];
+      await pump(tester, '/plans/mine');
+      await tester.ensureVisible(find.byKey(const ValueKey('delete-plan')));
+      await tester.tap(find.byKey(const ValueKey('delete-plan')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Eliminare questo piano?'), findsOneWidget);
+      expect(
+        find.text('Il gruppo verrà avvisato e i voti andranno persi.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('"Annulla" deletes nothing', (tester) async {
+      current = [mine];
+      await pump(tester, '/plans/mine');
+      await tester.ensureVisible(find.byKey(const ValueKey('delete-plan')));
+      await tester.tap(find.byKey(const ValueKey('delete-plan')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Annulla'));
+      await tester.pumpAndSettle();
+
+      verifyNever(() => repo.deletePlan(any()));
+      expect(find.text('Proposto da Valerio'), findsOneWidget);
+    });
+
+    testWidgets('"Elimina": deletes, goes Home and says "Piano eliminato"', (
+      tester,
+    ) async {
+      current = [mine];
+      await pump(tester, '/plans/mine');
+      await tester.ensureVisible(find.byKey(const ValueKey('delete-plan')));
+      await tester.tap(find.byKey(const ValueKey('delete-plan')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Elimina'));
+      await tester.pumpAndSettle();
+
+      verify(() => repo.deletePlan('mine')).called(1);
+      expect(find.text('HOME'), findsOneWidget);
+      expect(find.text('Piano eliminato'), findsOneWidget);
+    });
+
+    testWidgets('a failure stays on the plan and says so', (tester) async {
+      when(() => repo.deletePlan(any())).thenThrow(StateError('no'));
+      current = [mine];
+      await pump(tester, '/plans/mine');
+      await tester.ensureVisible(find.byKey(const ValueKey('delete-plan')));
+      await tester.tap(find.byKey(const ValueKey('delete-plan')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Elimina'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Non sono riuscito a eliminare il piano.'),
+        findsOneWidget,
+      );
+      expect(find.text('Proposto da Valerio'), findsOneWidget);
+    });
+
+    testWidgets('list: swiping YOUR card asks, deletes and removes it', (
+      tester,
+    ) async {
+      current = [mine, plan('other', place: 'Frida')];
+      await pump(tester, '/plans');
+      await tester.drag(
+        find.byKey(const ValueKey('plan:mine')),
+        const Offset(-600, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Eliminare questo piano?'), findsOneWidget);
+
+      await tester.tap(find.text('Elimina'));
+      await tester.pumpAndSettle();
+
+      verify(() => repo.deletePlan('mine')).called(1);
+      expect(find.byKey(const ValueKey('plan:mine')), findsNothing);
+      expect(find.byKey(const ValueKey('plan:other')), findsOneWidget);
+      expect(find.text('Piano eliminato'), findsOneWidget);
+    });
+
+    testWidgets('list: cancelling the swipe keeps the card', (tester) async {
+      current = [mine];
+      await pump(tester, '/plans');
+      await tester.drag(
+        find.byKey(const ValueKey('plan:mine')),
+        const Offset(-600, 0),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Annulla'));
+      await tester.pumpAndSettle();
+
+      verifyNever(() => repo.deletePlan(any()));
+      expect(find.byKey(const ValueKey('plan:mine')), findsOneWidget);
+    });
+
+    testWidgets('list: a failed delete keeps the card and says so', (
+      tester,
+    ) async {
+      when(() => repo.deletePlan(any())).thenThrow(StateError('no'));
+      current = [mine];
+      await pump(tester, '/plans');
+      await tester.drag(
+        find.byKey(const ValueKey('plan:mine')),
+        const Offset(-600, 0),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Elimina'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('plan:mine')), findsOneWidget);
+      expect(
+        find.text('Non sono riuscito a eliminare il piano.'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('list: other people\'s cards cannot be swiped away', (
+      tester,
+    ) async {
+      current = [plan('other')];
+      await pump(tester, '/plans');
+      await tester.drag(
+        find.byKey(const ValueKey('plan:other')),
+        const Offset(-600, 0),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Eliminare questo piano?'), findsNothing);
+      expect(find.byKey(const ValueKey('plan:other')), findsOneWidget);
     });
   });
 }

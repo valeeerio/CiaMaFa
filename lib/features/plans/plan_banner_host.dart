@@ -51,7 +51,11 @@ class PlanBannerHost extends ConsumerWidget {
                             ref.read(planBannerProvider.notifier).dismiss();
                             ref
                                 .read(routerProvider)
-                                .push('/plans/${announcement.planId}');
+                                .push(
+                                  announcement.cancelled
+                                      ? '/plans'
+                                      : '/plans/${announcement.planId}',
+                                );
                           },
                           onClose: () =>
                               ref.read(planBannerProvider.notifier).dismiss(),
