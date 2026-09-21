@@ -61,11 +61,17 @@ export async function accessToken(sa: ServiceAccount): Promise<string> {
   return cached.token;
 }
 
+export interface SendResult {
+  outcome: FcmOutcome;
+  /** Stato HTTP di FCM (per la diagnostica: mai il contenuto del messaggio). */
+  status: number;
+}
+
 export async function sendMessage(
   sa: ServiceAccount,
   deviceToken: string,
   message: PushMessage,
-): Promise<FcmOutcome> {
+): Promise<SendResult> {
   const res = await fetch(
     `https://fcm.googleapis.com/v1/projects/${sa.project_id}/messages:send`,
     {
@@ -89,5 +95,5 @@ export async function sendMessage(
   try {
     body = await res.json();
   } catch { /* corpo vuoto */ }
-  return classifyFcmResponse(res.status, body);
+  return { outcome: classifyFcmResponse(res.status, body), status: res.status };
 }

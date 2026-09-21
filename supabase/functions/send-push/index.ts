@@ -121,17 +121,22 @@ Deno.serve(async (req) => {
   }
 
   const counts = { sent: 0, unregistered: 0, error: 0 };
+  // Diagnostica: quante volte ogni stato HTTP di FCM, o l'errore di autenticazione.
+  const statuses: Record<string, number> = {};
+  const note = (k: string) => (statuses[k] = (statuses[k] ?? 0) + 1);
   const dead: string[] = [];
   await Promise.all(tokens.map(async (t) => {
     try {
-      const outcome = await sendMessage(sa, t, job.message);
+      const { outcome, status } = await sendMessage(sa, t, job.message);
       counts[outcome]++;
+      note(String(status));
       if (outcome === "unregistered") dead.push(t);
-    } catch {
+    } catch (e) {
       counts.error++;
+      note(`throw:${e instanceof Error ? e.message : "?"}`);
     }
   }));
   // Token spariti (app disinstallata): via dal database.
   if (dead.length > 0) await db.from("device_tokens").delete().in("token", dead);
-  return json(counts);
+  return json({ ...counts, statuses });
 });
