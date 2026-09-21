@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/realtime.dart';
 import '../places/place_candidate.dart';
 import 'activity.dart';
 import 'plan.dart';
@@ -184,36 +185,7 @@ class SupabasePlansRepository implements PlansRepository {
     String name,
     Map<String, PostgresChangeEvent> tables,
     Future<T?> Function(String table, Map<String, dynamic> row) onEvent,
-  ) {
-    late final StreamController<T> controller;
-    RealtimeChannel? channel;
-    controller = StreamController<T>(
-      onListen: () {
-        var c = _client.channel(name);
-        tables.forEach((table, event) {
-          c = c.onPostgresChanges(
-            event: event,
-            schema: 'public',
-            table: table,
-            callback: (payload) async {
-              try {
-                final out = await onEvent(table, payload.newRecord);
-                if (out != null && !controller.isClosed) controller.add(out);
-              } catch (_) {
-                // Realtime è un di più: un evento perso non deve rompere nulla.
-              }
-            },
-          );
-        });
-        channel = c.subscribe();
-      },
-      onCancel: () async {
-        final c = channel;
-        if (c != null) await _client.removeChannel(c);
-      },
-    );
-    return controller.stream;
-  }
+  ) => realtimeStream(_client, name, tables, onEvent);
 
   @override
   Stream<void> changes() => _realtime<void>('plans-live', const {
