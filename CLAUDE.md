@@ -33,5 +33,6 @@ flutter analyze                                            # lint
 flutter test                                               # test
 flutter run                                                # legge env.json (asset); ./run.sh equivale a usare --dart-define-from-file
 ```
+Chat: bottom nav solo sulle 4 tab (Home/Piani/Chat/Profilo, `StatefulShellRoute`); le schermate a stack stanno sul navigator root. Cleanup notturno delle immagini: `supabase/functions/cleanup-chat-images` (test: `node --test supabase/functions/cleanup-chat-images/cleanup_test.mjs`), guida in `docs/chat-setup.md`.
 Push: `supabase/functions/send-push` (Edge Function chiamata dai trigger; test puri con `node --test supabase/functions/send-push/messages_test.mjs`), guida in `docs/push-setup.md`.
 Migrazioni DB: `supabase/migrations/` (applicare con Supabase CLI: `supabase db push`).

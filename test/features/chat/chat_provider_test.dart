@@ -252,9 +252,8 @@ void main() {
       addTearDown(changes.close);
       var version = 0;
       when(() => repo.changes()).thenAnswer((_) => changes.stream);
-      when(
-        () => repo.todaysMessages(selfId: 'u1'),
-      ).thenAnswer((_) async => [_msg(id: 'v${version++}')]);
+      when(() => repo.todaysMessages(selfId: 'u1'))
+          .thenAnswer((_) async => [_msg(id: 'v${version++}')]);
       await container.read(currentProfileProvider.future);
 
       final seen = <String>[];

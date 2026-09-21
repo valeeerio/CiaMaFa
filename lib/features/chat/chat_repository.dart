@@ -50,14 +50,13 @@ class SupabaseChatRepository implements ChatRepository {
 
   String get _selfId => _client.auth.currentUser!.id;
 
-  Future<String> _group() async =>
-      _groupId ??=
-          (await _client
-                  .from('profiles')
-                  .select('group_id')
-                  .eq('id', _selfId)
-                  .single())['group_id']
-              as String;
+  Future<String> _group() async => _groupId ??=
+      (await _client
+              .from('profiles')
+              .select('group_id')
+              .eq('id', _selfId)
+              .single())['group_id']
+          as String;
 
   @override
   Future<List<ChatMessage>> todaysMessages({required String selfId}) async {

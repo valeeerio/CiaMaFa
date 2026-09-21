@@ -68,8 +68,12 @@ class _MessageBubbleState extends State<MessageBubble> {
                 borderRadius: BorderRadius.only(
                   topLeft: MessageBubble._radius,
                   topRight: MessageBubble._radius,
-                  bottomLeft: mine ? MessageBubble._radius : MessageBubble._corner,
-                  bottomRight: mine ? MessageBubble._corner : MessageBubble._radius,
+                  bottomLeft: mine
+                      ? MessageBubble._radius
+                      : MessageBubble._corner,
+                  bottomRight: mine
+                      ? MessageBubble._corner
+                      : MessageBubble._radius,
                 ),
               ),
               child: Padding(
