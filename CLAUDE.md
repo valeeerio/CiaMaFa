@@ -8,7 +8,8 @@ Stack: Flutter + Riverpod (riverpod_generator) + go_router + Supabase (Postgres/
 - UX approvata (testi, colori, flussi, stati; da replicare fedelmente): `docs/ciamafa-design-reference.md`
 
 ## Regole di business (non violare)
-- Nessuna chat, nessun feed social, nessun calendario/eventi programmati.
+- Nessun feed social, nessun calendario/eventi programmati.
+- Chat: unica per il gruppo (non per piano), effimera come i piani (spariscono a mezzanotte). Solo testo/immagini/reazioni, nessun thread/reply.
 - Un solo gruppo per utente; nessuna gestione multi-gruppo (gruppo unico seedato, vedi `supabase/migrations`).
 - I piani scadono a mezzanotte (Europe/Rome): `expires_at` è impostato da trigger e la RLS nasconde i piani scaduti.
 - Onboarding minimale: anonymous sign-in Supabase + nickname univoco nel gruppo, niente foto profilo.
