@@ -6,6 +6,9 @@ import 'core/router.dart';
 import 'core/supabase_client.dart';
 import 'core/theme.dart';
 import 'features/plans/plan_banner_host.dart';
+import 'features/push/push_host.dart';
+import 'features/push/push_messaging.dart';
+import 'features/push/push_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,9 +18,18 @@ Future<void> main() async {
     return;
   }
   await initSupabase();
+  // Push: solo se Firebase è configurato in env.json; altrimenti l'app parte
+  // comunque, senza notifiche di sistema.
+  final push = await FirebasePushMessaging.create();
   runApp(
     // Niente retry automatico: gli errori (es. rete) devono emergere subito.
-    ProviderScope(retry: (_, _) => null, child: const CiaMaFaApp()),
+    ProviderScope(
+      retry: (_, _) => null,
+      overrides: [
+        if (push != null) pushMessagingProvider.overrideWithValue(push),
+      ],
+      child: const CiaMaFaApp(),
+    ),
   );
 }
 
@@ -30,7 +42,8 @@ class CiaMaFaApp extends ConsumerWidget {
       title: 'CiaMaFa',
       theme: buildAppTheme(),
       routerConfig: ref.watch(routerProvider),
-      builder: (context, child) => PlanBannerHost(child: child!),
+      builder: (context, child) =>
+          PushHost(child: PlanBannerHost(child: child!)),
       debugShowCheckedModeBanner: false,
     );
   }

@@ -16,6 +16,28 @@ abstract final class Env {
   /// mappa usa i tile OpenStreetMap standard.
   static String cartoApiKey = const String.fromEnvironment('CARTO_API_KEY');
 
+  /// Firebase (solo per le push). Valori dal progetto Firebase, come per i
+  /// file `GoogleService-Info.plist` / `google-services.json`: vanno in `env.json`
+  /// così non servono file nativi. Se mancano, le push restano spente.
+  static String firebaseProjectId = const String.fromEnvironment(
+    'FIREBASE_PROJECT_ID',
+  );
+  static String firebaseSenderId = const String.fromEnvironment(
+    'FIREBASE_MESSAGING_SENDER_ID',
+  );
+  static String firebaseIosApiKey = const String.fromEnvironment(
+    'FIREBASE_IOS_API_KEY',
+  );
+  static String firebaseIosAppId = const String.fromEnvironment(
+    'FIREBASE_IOS_APP_ID',
+  );
+  static String firebaseAndroidApiKey = const String.fromEnvironment(
+    'FIREBASE_ANDROID_API_KEY',
+  );
+  static String firebaseAndroidAppId = const String.fromEnvironment(
+    'FIREBASE_ANDROID_APP_ID',
+  );
+
   static bool get isSupabaseConfigured =>
       supabaseUrl.isNotEmpty && supabasePublishableKey.isNotEmpty;
 
@@ -33,6 +55,18 @@ abstract final class Env {
         supabasePublishableKey,
       );
       cartoApiKey = pick('CARTO_API_KEY', cartoApiKey);
+      firebaseProjectId = pick('FIREBASE_PROJECT_ID', firebaseProjectId);
+      firebaseSenderId = pick('FIREBASE_MESSAGING_SENDER_ID', firebaseSenderId);
+      firebaseIosApiKey = pick('FIREBASE_IOS_API_KEY', firebaseIosApiKey);
+      firebaseIosAppId = pick('FIREBASE_IOS_APP_ID', firebaseIosAppId);
+      firebaseAndroidApiKey = pick(
+        'FIREBASE_ANDROID_API_KEY',
+        firebaseAndroidApiKey,
+      );
+      firebaseAndroidAppId = pick(
+        'FIREBASE_ANDROID_APP_ID',
+        firebaseAndroidAppId,
+      );
     } catch (_) {
       // Asset assente o non valido: resta "non configurato".
     }

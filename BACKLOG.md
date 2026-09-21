@@ -22,5 +22,6 @@ Riferimento UX: `docs/ciamafa-design-reference.md`. Ogni fase verrà dettagliata
 - [x] **Fase 7: Profilo**
   Modifica nickname (univocità) e notifiche on/off. Pagina "Crediti" con l'attribuzione della mappa (© OpenStreetMap, © CARTO), tolta dalla schermata del posto su richiesta.
   Fatto: nickname (2–20, univoco senza distinguere maiuscole: indice su `lower(btrim(nickname))`), interruttore notifiche unico, Crediti (OSM/CARTO, Photon/Komoot, licenze open source, versione), "Cancella il mio profilo" (`delete_my_profile()`: piani, profilo, utente anonimo) e badge dei piani di oggi sul pulsante Impegni della Home.
-- [ ] **Fase 8: Push notification reali**
+- [~] **Fase 8: Push notification reali** (codice pronto; mancano le credenziali, vedi `docs/push-setup.md`)
   FCM/APNs al posto della simulazione in-app.
+  Fatto: progetto Firebase `ciamafa` (iOS + Android), `device_tokens` + RPC, trigger su piani/voti/annullamenti → Edge Function `send-push` (FCM HTTP v1), registrazione del token e apertura del piano al tocco; con l'app aperta vale il banner in-app. Da fare: account Apple Developer attivo (chiave APNs + capability in Xcode) e segreto `FIREBASE_SERVICE_ACCOUNT` su Supabase.
