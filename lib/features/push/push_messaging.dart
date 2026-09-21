@@ -146,8 +146,9 @@ class FirebasePushMessaging implements PushMessaging {
         String? apns;
         for (var i = 0; i < 15 && apns == null; i++) {
           apns = await _fm.getAPNSToken();
-          if (apns == null)
+          if (apns == null) {
             await Future<void>.delayed(const Duration(seconds: 1));
+          }
         }
         debugPrint('Push: token APNs ${apns == null ? 'ASSENTE' : 'ok'}');
         if (apns == null) return null;
