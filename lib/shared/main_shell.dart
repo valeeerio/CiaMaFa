@@ -17,15 +17,19 @@ class MainShell extends ConsumerWidget {
     final plansToday = ref.watch(livePlansProvider).value?.length ?? 0;
     return Scaffold(
       body: navigationShell,
-      bottomNavigationBar: BottomNavBar(
-        currentIndex: navigationShell.currentIndex,
-        plansCount: plansToday,
-        // Ritoccare la tab attiva torna alla sua radice.
-        onTap: (i) => navigationShell.goBranch(
-          i,
-          initialLocation: i == navigationShell.currentIndex,
-        ),
-      ),
+      // Con la tastiera aperta (es. in Chat) la barra si toglie di mezzo invece
+      // di salire sopra la tastiera.
+      bottomNavigationBar: MediaQuery.viewInsetsOf(context).bottom > 0
+          ? null
+          : BottomNavBar(
+              currentIndex: navigationShell.currentIndex,
+              plansCount: plansToday,
+              // Ritoccare la tab attiva torna alla sua radice.
+              onTap: (i) => navigationShell.goBranch(
+                i,
+                initialLocation: i == navigationShell.currentIndex,
+              ),
+            ),
     );
   }
 }
