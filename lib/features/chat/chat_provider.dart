@@ -80,11 +80,8 @@ class ChatComposer extends _$ChatComposer {
   Future<bool> toggleReaction(ChatMessage message, String emoji) {
     final mine = message.reactions.any((r) => r.emoji == emoji && r.mine);
     return _try(
-      () => _repo.toggleReaction(
-        messageId: message.id,
-        emoji: emoji,
-        mine: mine,
-      ),
+      () =>
+          _repo.toggleReaction(messageId: message.id, emoji: emoji, mine: mine),
     );
   }
 

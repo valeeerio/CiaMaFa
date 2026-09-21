@@ -47,8 +47,14 @@ void main() {
   });
 
   test('isMine compares the sender with the current profile', () {
-    expect(ChatMessage.fromJson(_row(senderId: 'u1'), selfId: 'u1').isMine, isTrue);
-    expect(ChatMessage.fromJson(_row(senderId: 'u2'), selfId: 'u1').isMine, isFalse);
+    expect(
+      ChatMessage.fromJson(_row(senderId: 'u1'), selfId: 'u1').isMine,
+      isTrue,
+    );
+    expect(
+      ChatMessage.fromJson(_row(senderId: 'u2'), selfId: 'u1').isMine,
+      isFalse,
+    );
   });
 
   test('reactions are counted per emoji, in order of first use', () {

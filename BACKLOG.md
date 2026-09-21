@@ -34,10 +34,11 @@ Riferimento UX: `docs/ciamafa-design-reference.md`. Ogni fase verrà dettagliata
   FCM/APNs al posto della simulazione in-app.
   Fatto: progetto Firebase `ciamafa` (iOS + Android), `device_tokens` + RPC, trigger su piani/voti/annullamenti → Edge Function `send-push` (FCM HTTP v1), registrazione del token e apertura del piano al tocco; con l'app aperta vale il banner in-app. Da fare: account Apple Developer attivo (chiave APNs + capability in Xcode) e segreto `FIREBASE_SERVICE_ACCOUNT` su Supabase.
 
-- [ ] **Fase 9: Chat**
+- [x] **Fase 9: Chat**
   Chat unica di gruppo (non per piano), effimera: i messaggi spariscono a mezzanotte come i piani. Testo,
   immagini, reazioni emoji; nessun thread/reply. Eliminazione del proprio messaggio (nessuna conferma).
   Realtime su `messages`/`message_reactions`; immagini in bucket Supabase Storage `chat-images` con cleanup
   programmato a mezzanotte. Quarta tab della bottom nav (dipende da Fase 2.5). Vedi `docs/ciamafa-design-reference.md`
   sezione 8 per lo spec UI completo.
   **Spec di implementazione:** `docs/superpowers/specs/2026-09-21-nav-shell-chat-design.md` (sezione Fase 9: schema, RLS, storage, cleanup, UI, test).
+  Fatto: migrazione `20260921000006_chat.sql` (`messages`, `message_reactions`, RLS per gruppo con scadenza a mezzanotte, INSERT/DELETE solo del mittente, `expires_at` da trigger, `ON DELETE CASCADE` e `delete_my_profile()` che toglie anche i messaggi, Realtime, bucket privato `chat-images` con policy per gruppo). Tab Chat: bolle proprie/altrui, foto (📷 → Scatta/Galleria, max 1600 px, JPEG q80 via `image_picker`) con placeholder e didascalia, reazioni con toggle e "🙂+" (👍 ❤️ 😂 😮 😢 🙏), 🗑️ senza conferma solo sui propri, aggiornamento Realtime, entrata morbida solo per i messaggi nuovi; la nav bar si toglie con la tastiera aperta. Cleanup: Edge Function `cleanup-chat-images` + `run_chat_cleanup()` (pg_cron, vedi `docs/chat-setup.md`). **Da fare a mano:** applicare la migrazione (`supabase db push`), deploy della funzione e `cron.schedule`; provare due utenti reali (checklist in spec, sezione 9.7).

@@ -3,7 +3,11 @@ const quickReactions = ['👍', '❤️', '😂', '😮', '😢', '🙏'];
 
 /// Una reazione emoji a un messaggio, già aggregata.
 class Reaction {
-  const Reaction({required this.emoji, required this.count, required this.mine});
+  const Reaction({
+    required this.emoji,
+    required this.count,
+    required this.mine,
+  });
 
   final String emoji;
   final int count;
@@ -40,16 +44,20 @@ class ChatMessage {
 
   /// Da una riga di `messages` con `profiles(nickname)` e `message_reactions`
   /// incorporati. [selfId] è il profilo corrente.
-  factory ChatMessage.fromJson(Map<String, dynamic> json, {required String selfId}) {
+  factory ChatMessage.fromJson(
+    Map<String, dynamic> json, {
+    required String selfId,
+  }) {
     final senderId = json['sender_id'] as String;
-    final rows = [
-      for (final r in (json['message_reactions'] as List? ?? const []))
-        r as Map<String, dynamic>,
-    ]..sort(
-        (a, b) => DateTime.parse(
-          a['created_at'] as String,
-        ).compareTo(DateTime.parse(b['created_at'] as String)),
-      );
+    final rows =
+        [
+          for (final r in (json['message_reactions'] as List? ?? const []))
+            r as Map<String, dynamic>,
+        ]..sort(
+          (a, b) =>
+              DateTime.parse(a['created_at'] as String)
+                  .compareTo(DateTime.parse(b['created_at'] as String)),
+        );
     // Conteggio per emoji, nell'ordine in cui è comparsa la prima volta.
     final counts = <String, int>{};
     final mine = <String>{};
@@ -62,7 +70,8 @@ class ChatMessage {
       id: json['id'] as String,
       senderId: senderId,
       senderNickname:
-          (json['profiles'] as Map<String, dynamic>?)?['nickname'] as String? ?? '?',
+          (json['profiles'] as Map<String, dynamic>?)?['nickname'] as String? ??
+          '?',
       text: json['text'] as String?,
       imagePath: json['image_path'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String).toUtc(),

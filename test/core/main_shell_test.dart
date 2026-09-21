@@ -74,11 +74,18 @@ void main() {
     addTearDown(router.dispose);
   });
 
-  Future<void> pump(WidgetTester tester) async {
+  Future<void> pump(WidgetTester tester, {double keyboard = 0}) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [plansRepositoryProvider.overrideWithValue(plans)],
-        child: MaterialApp.router(routerConfig: router),
+        child: MaterialApp.router(
+          routerConfig: router,
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context)
+                .copyWith(viewInsets: EdgeInsets.only(bottom: keyboard)),
+            child: child!,
+          ),
+        ),
       ),
     );
     await tester.pumpAndSettle();
@@ -144,5 +151,14 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('the nav bar steps aside while the keyboard is open', (
+    tester,
+  ) async {
+    await pump(tester, keyboard: 300);
+    expect(find.byType(BottomNavBar), findsNothing);
+    await pump(tester);
+    expect(find.byType(BottomNavBar), findsOneWidget);
   });
 }
