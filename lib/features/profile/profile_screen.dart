@@ -133,11 +133,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
           children: [
-            ScreenHeader(
-              title: 'Profilo',
-              onBack: () =>
-                  context.canPop() ? context.pop() : context.go('/home'),
-            ),
+            const ScreenHeader(title: 'Profilo'),
             const SizedBox(height: 24),
             Center(
               child: CircleAvatar(

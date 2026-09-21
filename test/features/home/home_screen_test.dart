@@ -1,51 +1,13 @@
 import 'package:ciamafa/features/home/home_screen.dart';
-import 'package:ciamafa/features/onboarding/onboarding_provider.dart';
-import 'package:ciamafa/features/onboarding/profile_repository.dart';
 import 'package:ciamafa/features/plans/activity.dart';
-import 'package:ciamafa/features/plans/plan.dart';
-import 'package:ciamafa/features/plans/plans_provider.dart';
-import 'package:ciamafa/features/plans/plans_repository.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:mocktail/mocktail.dart';
-
-class MockProfileRepository extends Mock implements ProfileRepository {}
-
-class MockPlans extends Mock implements PlansRepository {}
-
-Plan _plan(String id) => Plan(
-  id: id,
-  activityId: 'bar',
-  emoji: '🍻',
-  label: 'Bar',
-  creatorId: 'x',
-  creatorNickname: 'Marco',
-  createdAt: DateTime(2026, 9, 20, 18),
-  place: null,
-  votes: const [],
-);
 
 void main() {
-  late MockProfileRepository repo;
-  late MockPlans plans;
-  var todays = <Plan>[];
   late GoRouter router;
 
   setUp(() {
-    repo = MockProfileRepository();
-    plans = MockPlans();
-    todays = [];
-    when(() => plans.todaysPlans()).thenAnswer((_) async => todays);
-    when(() => plans.changes()).thenAnswer((_) => const Stream.empty());
-    when(() => repo.fetchCurrentProfile()).thenAnswer(
-      (_) async => const Profile(
-        id: 'u1',
-        nickname: 'valerio',
-        notificationsEnabled: true,
-      ),
-    );
     router = GoRouter(
       initialLocation: '/home',
       routes: [
@@ -54,8 +16,6 @@ void main() {
           path: '/places/:activityId',
           builder: (_, s) => Text('places:${s.pathParameters['activityId']}'),
         ),
-        GoRoute(path: '/plans', builder: (_, _) => const Text('plans')),
-        GoRoute(path: '/profile', builder: (_, _) => const Text('profile')),
       ],
     );
   });
@@ -64,25 +24,19 @@ void main() {
     tester.view.physicalSize = const Size(800, 2400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          profileRepositoryProvider.overrideWithValue(repo),
-          plansRepositoryProvider.overrideWithValue(plans),
-        ],
-        child: MaterialApp.router(routerConfig: router),
-      ),
-    );
+    await tester.pumpWidget(MaterialApp.router(routerConfig: router));
     await tester.pumpAndSettle();
   }
 
-  testWidgets('shows header, title and the 5 activities in fixed order', (
+  testWidgets('shows title and the 5 activities in fixed order, no header', (
     tester,
   ) async {
     await pump(tester);
 
-    expect(find.text('V'), findsOneWidget); // iniziale del nickname
-    expect(find.text('📅 Impegni'), findsOneWidget);
+    // Profilo e Piani si raggiungono dalla bottom nav, non più dalla Home.
+    expect(find.text('V'), findsNothing);
+    expect(find.text('📅 Impegni'), findsNothing);
+    expect(find.byKey(const ValueKey('plans-badge')), findsNothing);
     expect(find.text('CiaMaFa?'), findsOneWidget);
     expect(find.text('Lancia un piano al gruppo.'), findsOneWidget);
 
@@ -107,36 +61,4 @@ void main() {
       expect(find.text('places:${a.id}'), findsOneWidget);
     });
   }
-
-  testWidgets('avatar opens profile, pill opens plans', (tester) async {
-    await pump(tester);
-    await tester.tap(find.text('📅 Impegni'));
-    await tester.pumpAndSettle();
-    expect(find.text('plans'), findsOneWidget);
-
-    router.pop();
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('V'));
-    await tester.pumpAndSettle();
-    expect(find.text('profile'), findsOneWidget);
-  });
-
-  testWidgets('no badge when there are no plans today', (tester) async {
-    await pump(tester);
-    expect(find.byKey(const ValueKey('plans-badge')), findsNothing);
-  });
-
-  testWidgets('the Impegni pill shows how many plans there are today', (
-    tester,
-  ) async {
-    todays = [_plan('a'), _plan('b'), _plan('c')];
-    await pump(tester);
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('plans-badge')),
-        matching: find.text('3'),
-      ),
-      findsOneWidget,
-    );
-  });
 }

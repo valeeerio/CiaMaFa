@@ -4,17 +4,25 @@ import '../core/theme.dart';
 import 'press_effects.dart';
 
 /// Testata simmetrica: freccia a sinistra, [title] al centro, spazio vuoto a
-/// destra della stessa larghezza della freccia.
+/// destra della stessa larghezza della freccia. Senza [onBack] (tab della bottom
+/// nav) niente freccia: il titolo resta a sinistra.
 class ScreenHeader extends StatelessWidget {
-  const ScreenHeader({super.key, required this.title, required this.onBack});
+  const ScreenHeader({super.key, required this.title, this.onBack});
 
   final String title;
-  final VoidCallback onBack;
+  final VoidCallback? onBack;
 
   static const _side = 44.0;
 
   @override
   Widget build(BuildContext context) {
+    final onBack = this.onBack;
+    if (onBack == null) {
+      return Semantics(
+        header: true,
+        child: Text(title, style: Theme.of(context).textTheme.headlineLarge),
+      );
+    }
     return Row(
       children: [
         Semantics(

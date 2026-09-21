@@ -71,11 +71,7 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              ScreenHeader(
-                title: 'Piani di oggi',
-                onBack: () =>
-                    context.canPop() ? context.pop() : context.go('/home'),
-              ),
+              const ScreenHeader(title: 'Piani di oggi'),
               const SizedBox(height: 18),
               Expanded(
                 child: switch (plans) {

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:go_router/go_router.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../core/router.dart';
@@ -85,9 +86,15 @@ class PushRouting extends _$PushRouting {
     ref.onDispose(() => _opened?.cancel());
     if (!push.isAvailable) return;
     _opened = push.openedRoutes.listen(
-      (route) => ref.read(routerProvider).push(route),
+      (route) => _open(ref.read(routerProvider), route),
     );
     unawaited(_openInitial(push));
+  }
+
+  /// La lista sta nella tab Piani; il dettaglio (a tutto schermo) ci si appoggia sopra.
+  void _open(GoRouter router, String route) {
+    router.go('/plans');
+    if (route != '/plans') unawaited(router.push(route));
   }
 
   Future<void> _openInitial(PushMessaging push) async {
@@ -96,8 +103,7 @@ class PushRouting extends _$PushRouting {
       if (route == null) return;
       if (await ref.read(currentProfileProvider.future) == null) return;
       final router = ref.read(routerProvider);
-      router.go('/home');
-      await router.push(route);
+      _open(router, route);
     } catch (_) {}
   }
 }

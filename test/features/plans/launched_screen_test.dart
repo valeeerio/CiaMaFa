@@ -94,7 +94,7 @@ void main() {
   });
 
   testWidgets(
-    '"Vedi piano" opens the new plan, with list and Home underneath',
+    '"Vedi piano" opens the new plan, with the Piani tab underneath',
     (tester) async {
       final router = await pump(tester);
       await tester.tap(find.text('Vedi piano'));
@@ -103,9 +103,7 @@ void main() {
       router.pop();
       await tester.pumpAndSettle();
       expect(find.text('PIANI'), findsOneWidget);
-      router.pop();
-      await tester.pumpAndSettle();
-      expect(find.text('HOME'), findsOneWidget);
+      expect(router.canPop(), isFalse);
     },
   );
 }

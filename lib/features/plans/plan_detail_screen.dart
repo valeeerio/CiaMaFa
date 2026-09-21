@@ -27,7 +27,7 @@ class PlanDetailScreen extends ConsumerStatefulWidget {
 class _PlanDetailScreenState extends ConsumerState<PlanDetailScreen> {
   bool _voting = false;
 
-  void _back() => context.canPop() ? context.pop() : context.go('/home');
+  void _back() => context.canPop() ? context.pop() : context.go('/plans');
 
   Future<void> _vote(Plan plan, VoteChoice choice) async {
     final me = ref.read(currentProfileProvider).value;

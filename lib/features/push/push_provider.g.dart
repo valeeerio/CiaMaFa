@@ -209,7 +209,7 @@ final class PushRoutingProvider extends $NotifierProvider<PushRouting, void> {
   }
 }
 
-String _$pushRoutingHash() => r'67fb3e9401b62e40bafca7976f22f6f5fe213dd3';
+String _$pushRoutingHash() => r'1ec104ff37c069269012607e2c4e98aa660870f4';
 
 /// Tocco su una notifica: apre il piano (o la lista). Se l'app era chiusa,
 /// aspetta il profilo e mette la Home sotto.

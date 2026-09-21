@@ -251,7 +251,7 @@ class _PlacesScreenState extends ConsumerState<PlacesScreen>
                 content: Text('Questo posto è già stato proposto oggi.'),
               ),
             );
-          unawaited(router.push('/plans'));
+          router.go('/plans');
           unawaited(router.push('/plans/$planId'));
         case NeedsConfirmation():
           if (await _confirmExtraPlan() && mounted) {

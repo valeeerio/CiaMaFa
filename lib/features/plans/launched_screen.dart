@@ -56,9 +56,8 @@ class _LaunchedScreenState extends State<LaunchedScreen>
   }
 
   void _seePlan() {
-    // Home e lista sotto, così "indietro" dal piano torna alla lista e poi alla Home.
-    context.go('/home');
-    context.push('/plans');
+    // Tab Piani sotto, così "indietro" dal piano torna alla lista.
+    context.go('/plans');
     context.push('/plans/${widget.info.planId}');
   }
 
