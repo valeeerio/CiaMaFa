@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:go_router/go_router.dart';
+import 'package:flutter/foundation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../core/router.dart';
@@ -47,6 +48,7 @@ class PushController extends _$PushController {
         .read(deviceTokenRepositoryProvider)
         .register(token: token, platform: push.platform);
     _registered = token;
+    debugPrint('Push: token registrato');
   }
 
   Future<void> _enable(PushMessaging push) async {
@@ -58,7 +60,9 @@ class PushController extends _$PushController {
       _refreshes = push.tokenRefreshes.listen((t) {
         unawaited(_register(push, t).catchError((Object _) {}));
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Push: registrazione fallita: $e');
+    }
   }
 
   Future<void> _disable(PushMessaging push) async {

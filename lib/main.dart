@@ -20,7 +20,12 @@ Future<void> main() async {
   await initSupabase();
   // Push: solo se Firebase è configurato in env.json; altrimenti l'app parte
   // comunque, senza notifiche di sistema.
-  final push = await FirebasePushMessaging.create();
+  // Mai bloccare l'avvio per Firebase: se non risponde entro pochi secondi
+  // l'app parte lo stesso, senza notifiche di sistema.
+  final push = await FirebasePushMessaging.create().timeout(
+    const Duration(seconds: 5),
+    onTimeout: () => null,
+  );
   runApp(
     // Niente retry automatico: gli errori (es. rete) devono emergere subito.
     ProviderScope(

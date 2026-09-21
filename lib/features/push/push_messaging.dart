@@ -113,7 +113,8 @@ class FirebasePushMessaging implements PushMessaging {
       return FirebasePushMessaging._(
         target == TargetPlatform.iOS ? 'ios' : 'android',
       );
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Push disattivate: $e');
       return null;
     }
   }
@@ -127,9 +128,11 @@ class FirebasePushMessaging implements PushMessaging {
   Future<bool> requestPermission() async {
     try {
       final settings = await _fm.requestPermission();
+      debugPrint('Push: permesso ${settings.authorizationStatus.name}');
       return settings.authorizationStatus == AuthorizationStatus.authorized ||
           settings.authorizationStatus == AuthorizationStatus.provisional;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Push: permesso non ottenuto: $e');
       return false;
     }
   }
@@ -137,9 +140,24 @@ class FirebasePushMessaging implements PushMessaging {
   @override
   Future<String?> token() async {
     try {
-      return await _fm.getToken();
-    } catch (_) {
+      if (platform == 'ios') {
+        // Il token APNs arriva qualche secondo dopo il permesso: senza, FCM non
+        // può generare il suo.
+        String? apns;
+        for (var i = 0; i < 15 && apns == null; i++) {
+          apns = await _fm.getAPNSToken();
+          if (apns == null)
+            await Future<void>.delayed(const Duration(seconds: 1));
+        }
+        debugPrint('Push: token APNs ${apns == null ? 'ASSENTE' : 'ok'}');
+        if (apns == null) return null;
+      }
+      final token = await _fm.getToken();
+      debugPrint('Push: token FCM ${token == null ? 'ASSENTE' : 'ok'}');
+      return token;
+    } catch (e) {
       // Es. iPhone senza APNs (account Apple non ancora attivo).
+      debugPrint('Push: token non disponibile: $e');
       return null;
     }
   }
