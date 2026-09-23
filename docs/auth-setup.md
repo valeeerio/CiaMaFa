@@ -23,14 +23,19 @@
   client iOS (`com.googleusercontent.apps.…`): senza, Google Sign-In su
   iPhone non torna in app dopo il login.
 
-## Da fare, solo per Android
-- Client OAuth **Android** su Google Cloud Console: package
-  `com.valeriomortella.ciamafa` + SHA-1 del certificato di firma (debug:
-  `keytool -list -v -keystore ~/.android/debug.keystore -alias
-  androiddebugkey -storepass android`; per il rilascio, la chiave di upload,
-  vedi `docs/release-setup.md`). Non serve incollare nulla in `env.json`:
-  Android lo trova da solo tramite `google-services.json`, basta che il
-  client esista con l'SHA-1 giusto.
+## Fatto, solo per Android
+- Client OAuth **Android** su Google Cloud Console ("CiaMaFa Android"):
+  package `com.valeriomortella.ciamafa` + SHA-1 del certificato di firma
+  **debug** (`82:76:9D:0B:40:5C:E3:69:07:2A:91:12:EA:29:22:F5:C1:28:35:D5`,
+  da `keytool -list -v -keystore ~/.android/debug.keystore -alias
+  androiddebugkey -storepass android`). Non serve incollare nulla in
+  `env.json`: Android lo trova da solo tramite `android/app/google-services.json`
+  (gitignored, scaricato da Firebase → Impostazioni progetto → App Android).
+- **Da fare quando si genera la chiave di upload per il rilascio** (vedi
+  `docs/release-setup.md`): aggiungere anche il SHA-1 di quella chiave (su
+  Firebase → App Android → "Aggiungi impronta digitale", poi riscaricare
+  `google-services.json`), altrimenti il login Google non funziona nelle
+  build firmate per il rilascio/Play Store.
 
 ## Prova
 - Onboarding da zero: "Accedi con Apple"/"Accedi con Google" → schermata
