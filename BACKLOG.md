@@ -42,3 +42,20 @@ Riferimento UX: `docs/ciamafa-design-reference.md`. Ogni fase verrà dettagliata
   sezione 8 per lo spec UI completo.
   **Spec di implementazione:** `docs/superpowers/specs/2026-09-21-nav-shell-chat-design.md` (sezione Fase 9: schema, RLS, storage, cleanup, UI, test).
   Fatto: migrazione `20260921000006_chat.sql` (`messages`, `message_reactions`, RLS per gruppo con scadenza a mezzanotte, INSERT/DELETE solo del mittente, `expires_at` da trigger, `ON DELETE CASCADE` e `delete_my_profile()` che toglie anche i messaggi, Realtime, bucket privato `chat-images` con policy per gruppo). Tab Chat: bolle proprie/altrui, foto (📷 → Scatta/Galleria, max 1600 px, JPEG q80 via `image_picker`) con placeholder e didascalia, reazioni con toggle e "🙂+" (👍 ❤️ 😂 😮 😢 🙏), 🗑️ senza conferma solo sui propri, aggiornamento Realtime, entrata morbida solo per i messaggi nuovi; la nav bar si toglie con la tastiera aperta. Cleanup: Edge Function `cleanup-chat-images` + `run_chat_cleanup()` (pg_cron, vedi `docs/chat-setup.md`). Applicato sul progetto `CiaMaFa` (migrazione `chat`, funzione `cleanup-chat-images` senza verifica JWT, `pg_cron` attivo con job `chat-cleanup` alle 22:05 e 23:05 UTC); RLS provata in transazione con due profili reali e cleanup provato end-to-end (200, `removed: 0`). **Ancora da provare a mano:** la chat con due telefoni veri e la rimozione di un file vero dal bucket (checklist in spec, sezione 9.7).
+
+## v2 — Identità persistente e multi-gruppo
+
+Cambia due regole fondanti oggi in `CLAUDE.md` ("un solo gruppo per utente", "onboarding anonimo"). Sviluppo su `main` verso il rilascio pubblico, non su un branch separato. Ogni fase va progettata (spec) quando viene affrontata.
+
+- [ ] **Fase 10: Migrazione auth (anonimo → email)**
+  Sign-in anonimo → email + magic link; utenti anonimi esistenti collegati (`updateUser`) al nuovo metodo senza perdita di dati (stesso `profile_id`). Aggiornamento onboarding e di `CLAUDE.md`.
+- [ ] **Fase 11: Schema multi-gruppo (`group_members`) + RLS**
+  Tabella `group_members` (ruolo owner/member) al posto di `profiles.group_id`; migrazione dei dati esistenti (owner = primo membro); riscrittura di tutte le RLS che oggi assumono un gruppo per profilo (piani, voti, messaggi, reazioni, preset, storage chat-images, push). `profiles.group_id` deprecato solo dopo verifica completa con `get_advisors`.
+- [ ] **Fase 12: Crea un nuovo gruppo**
+  Chi crea un gruppo ne diventa owner. Necessaria perché la Fase 13 abbia gruppi da trovare oltre a quello esistente.
+- [ ] **Fase 13: Ricerca gruppi pubblici e richiesta di join**
+  `groups.is_discoverable` + nome/slug pubblico; ricerca per nome; richiesta di join con approvazione dell'owner (nuova sezione "Richieste" in Profilo o area admin del gruppo).
+- [ ] **Fase 14: Amicizie**
+  Tabella `friendships` (richiesta/accetta/rifiuta), indipendente dai gruppi; ricerca profili solo per nickname (non email, per evitare enumerazione di indirizzi). Nessuna interazione con i piani in questa fase.
+- [ ] **Fase 15: Switcher multi-gruppo in Home**
+  Selettore di gruppo attivo; il "gruppo attivo" diventa contesto trasversale per piani, chat, push e classifica preset, non solo un widget isolato in Home.
