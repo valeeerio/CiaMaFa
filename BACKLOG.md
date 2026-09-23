@@ -60,3 +60,16 @@ Cambia due regole fondanti oggi in `CLAUDE.md` ("un solo gruppo per utente", "on
   Tabella `friendships` (richiesta/accetta/rifiuta), indipendente dai gruppi; ricerca profili solo per nickname (non email, per evitare enumerazione di indirizzi). Nessuna interazione con i piani in questa fase.
 - [ ] **Fase 15: Switcher multi-gruppo in Home**
   Selettore di gruppo attivo; il "gruppo attivo" diventa contesto trasversale per piani, chat, push e classifica preset, non solo un widget isolato in Home.
+
+## Pubblicazione sugli store
+
+Da affrontare quando si pubblica. Fino alla v2 multi-gruppo niente store pubblico: con il gruppo unico seedato chiunque scarichi l'app entrerebbe nel gruppo degli amici. Per gli amici bastano **TestFlight** e il **test interno di Play**. Guida tecnica in `docs/release-setup.md`.
+
+Già fatto (commit `ccae0cd`): repo GitHub privato; bundle ID/applicationId `com.valeriomortella.ciamafa`; Baloo 2 e Poppins inclusi negli asset, senza download da Google a runtime (licenze OFL nella pagina delle licenze); firma di release da `android/key.properties`; `ITSAppUsesNonExemptEncryption = false`. Supabase è in eu-west-1 (UE).
+
+- [ ] **Registrare il nuovo bundle ID** (serve anche prima della pubblicazione: finché non è fatto le push non arrivano e il login Apple/Google punta al vecchio ID): app iOS/Android in Firebase + i due `FIREBASE_*_APP_ID` in `env.json`; App ID Apple con Push e Sign in with Apple; Client ID nel provider Apple di Supabase; client OAuth iOS/Android su Google Cloud (Android vuole l'SHA-1 del keystore).
+- [ ] **Keystore di upload Android** (`keytool`, vedi `docs/release-setup.md`) + `android/key.properties`; keystore e password nel password manager; Play App Signing attivo.
+- [ ] **Account sviluppatore**: Apple Developer Program (99 $/anno, persona fisica) e Google Play Console (25 $ una tantum, verifica identità; per la produzione pubblica serve un test chiuso con 12 tester per 14 giorni). Dichiararsi "non-trader" (DSA) finché l'app è gratuita e senza guadagni.
+- [ ] **Privacy policy su un URL pubblico** (obbligatoria per entrambi gli store) + link web per chiedere la cancellazione dell'account (Google). Dati da dichiarare: nickname e identità Apple/Google, piani/voti, messaggi e foto della chat (Supabase, cancellati ogni notte), posizione → ricerche su Photon/komoot, token push → Firebase (USA, Data Privacy Framework), IP. Compilare la scheda "App Privacy" di Apple e "Sicurezza dei dati" di Google.
+- [ ] **Scheda store**: icona, screenshot, descrizione, email e URL di supporto, classificazione per età (chat con foto → 12+/Teen).
+- [ ] **Solo per lo store pubblico (dopo la v2)**: segnala/blocca utenti nella chat (regola Apple 1.2 sui contenuti degli utenti); verificare che "CiaMaFa" sia libero come marchio (UIBM/EUIPO, registrazione facoltativa); licenza commerciale dei tile CARTO e istanza Photon propria se cresce l'uso o si monetizza; piano Supabase a pagamento (il free va in pausa dopo 7 giorni di inattività); partita IVA solo se si monetizza in modo abituale.
