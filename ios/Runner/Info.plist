@@ -34,6 +34,18 @@
 	<string>Serve per scegliere una foto da mandare al gruppo in chat.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>CiaMaFa usa la tua posizione per proporti luoghi vicini.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<!-- Google Sign-In (Fase 10): reversed del Client ID iOS (Google Cloud > Client). -->
+				<string>com.googleusercontent.apps.605322550978-pjhbi8d3k8prje8m5kjage08qro8au16</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
