@@ -53,3 +53,11 @@ app.*.map.json
 *.env.local
 
 env.json
+
+# Credenziali (chiavi Firebase/APNs, keystore): solo in locale, mai nel repo.
+# Il .gitignore evita il commit, non la perdita: tenerne un backup nel password manager.
+/secrets/
+*.p8
+*adminsdk*.json
+GoogleService-Info.plist
+google-services.json

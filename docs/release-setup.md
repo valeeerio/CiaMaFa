@@ -48,7 +48,8 @@ valgono più. Da rifare:
 
 1. **Firebase**: aggiungi un'app iOS e una Android con il nuovo id, aggiorna
    `FIREBASE_IOS_APP_ID` / `FIREBASE_ANDROID_APP_ID` (e le API key se cambiano)
-   in `env.json`. La chiave APNs caricata su Firebase resta valida.
+   in `env.json`. La chiave APNs (`.p8`) va ricaricata sulla nuova app iOS
+   (Impostazioni progetto → Cloud Messaging): in Firebase è per singola app.
 2. **Apple Developer**: nuovo App ID con Push Notifications e Sign in with
    Apple.
 3. **Supabase Auth → Apple**: Client ID = nuovo bundle id.
