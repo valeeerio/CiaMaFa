@@ -147,7 +147,7 @@ final class PushControllerProvider
   }
 }
 
-String _$pushControllerHash() => r'944e817e88caa6b8e256710ba733a5ea4d2c7356';
+String _$pushControllerHash() => r'a55a3366e79a2505da961ff03044525d63491eae';
 
 /// Tiene allineato il token del telefono con il profilo: se le notifiche sono
 /// accese chiede il permesso e registra il token (e i suoi rinnovi); se le spegni

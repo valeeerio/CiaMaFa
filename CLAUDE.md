@@ -27,10 +27,7 @@ Stack: Flutter + Riverpod (riverpod_generator) + go_router + Supabase (Postgres/
 
 ## Comandi
 ```
-flutter pub get
 dart run build_runner build --delete-conflicting-outputs   # codegen Riverpod
-flutter analyze                                            # lint
-flutter test                                               # test
 flutter run                                                # legge env.json (asset); ./run.sh equivale a usare --dart-define-from-file
 ```
 Chat: bottom nav solo sulle 4 tab (Home/Piani/Chat/Profilo, `StatefulShellRoute`); le schermate a stack stanno sul navigator root. Cleanup notturno delle immagini: `supabase/functions/cleanup-chat-images` (test: `node --test supabase/functions/cleanup-chat-images/cleanup_test.mjs`), guida in `docs/chat-setup.md`.
