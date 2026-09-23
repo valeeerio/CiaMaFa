@@ -16,7 +16,7 @@ Riferimento UX: `docs/ciamafa-design-reference.md`. Ogni fase verrà dettagliata
   Va fatta prima della Fase 9 (Chat), che è la quarta tab.
   **Spec di implementazione:** `docs/superpowers/specs/2026-09-21-nav-shell-chat-design.md` (sezione Fase 2.5).
   Fatto: `StatefulShellRoute.indexedStack` con 4 branch (`/home`, `/plans`, `/chat`, `/profile`) e `MainShell` + `BottomNavBar` (`lib/shared/`); `/places`, `/launched`, `/plans/:id` e `/credits` sul navigator root, quindi senza nav bar. Home solo titolo + 5 pulsanti; Piani e Profilo senza freccia (`ScreenHeader.onBack` opzionale); badge dei piani di oggi verde acido sull'icona Piani. "Vedi piano", banner di annullamento e tocco su push usano `go('/plans')` (+ `push` del dettaglio). La tab Chat è un segnaposto fino alla Fase 9.
-- [ ] **Fase 3: Scelta del posto**
+- [x] **Fase 3: Scelta del posto**
   Preset auto-alimentati per attività/gruppo (`place_activity_stats`) + ricerca Photon e mappa flutter_map/OSM (al posto di Mapbox). Statistiche e riga `places` scritte al lancio (Fase 4).
 - [x] **Fase 4: Lancio piano + notifica push simulata/reale**
   Creazione del piano, schermata "Piano lanciato!", banner di notifica in-app simulato. Funzione `launch_plan` (RPC): salva il luogo se nuovo, fonde i punti entro ~30 m da uno esistente (luoghi senza `external_id`), crea il piano. I punti li aggiornano già i trigger su `plans`/`votes` (Fase 3).
