@@ -47,8 +47,9 @@ Riferimento UX: `docs/ciamafa-design-reference.md`. Ogni fase verrà dettagliata
 
 Cambia due regole fondanti oggi in `CLAUDE.md` ("un solo gruppo per utente", "onboarding anonimo"). Sviluppo su `main` verso il rilascio pubblico, non su un branch separato. Ogni fase va progettata (spec) quando viene affrontata.
 
-- [~] **Fase 10: Migrazione auth (anonimo → Apple/Google)** (codice pronto su `feature/fase-10-auth-social`; mancano le credenziali, vedi `docs/auth-setup.md`)
+- [x] **Fase 10: Migrazione auth (anonimo → Apple/Google)**
   Ripensata in corsa: niente email/magic link (nessun mittente da gestire) — accesso nativo con **Apple e Google** (`signInWithIdToken`), un tocco, nessun invio. Il nickname resta scelto a mano (non precompilato dal nome reale). Chi ha già un profilo anonimo lo collega al primo accesso utile in Profilo (`linkIdentityWithIdToken`, stesso `profile_id`, nessuna perdita di dati); un'identità già collegata a un altro profilo del gruppo mostra l'avviso invece di rubarlo. `joinGroup` non fa più login anonimo: richiede una sessione Apple/Google già attiva.
+  Verificato end-to-end: iscrizione da zero e collegamento di un profilo anonimo esistente, con entrambe le identità (Apple e Google) sullo stesso profilo, sia sul Simulatore (serve accedere una volta con l'Apple ID nelle Impostazioni del Simulatore, non nell'app: la verifica in due passaggi non si completa se avviata dall'app, per un limite del Simulatore) sia su iPhone reale.
 - [ ] **Fase 11: Schema multi-gruppo (`group_members`) + RLS**
   Tabella `group_members` (ruolo owner/member) al posto di `profiles.group_id`; migrazione dei dati esistenti (owner = primo membro); riscrittura di tutte le RLS che oggi assumono un gruppo per profilo (piani, voti, messaggi, reazioni, preset, storage chat-images, push). `profiles.group_id` deprecato solo dopo verifica completa con `get_advisors`.
 - [ ] **Fase 12: Crea un nuovo gruppo**
