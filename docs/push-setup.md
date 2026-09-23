@@ -5,7 +5,9 @@ solo le credenziali, che si collegano una volta sola.
 
 ## Già fatto
 - Progetto Firebase **ciamafa** (piano Spark), app iOS e Android registrate con
-  l'id `com.valeriomortella.ciamafa`.
+  l'id `com.valeriomortella.ciamafa` (ri-registrate dopo il cambio bundle ID;
+  le vecchie app sotto `com.valeriomortella.ciamafa.ciamafa` sono rimaste
+  orfane in Firebase, innocue ma da rimuovere quando serve pulizia).
 - Valori Firebase in `env.json` (`FIREBASE_*`, gitignored; i nomi sono in
   `env.example.json`). Se mancano, l'app parte senza push.
 - Tabella `device_tokens`, RPC `register_device_token` / `unregister_device_token`,
