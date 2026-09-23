@@ -56,6 +56,53 @@ final class ProfileRepositoryProvider
 
 String _$profileRepositoryHash() => r'cf53684378be07e3e0eea8db25459cc537701395';
 
+@ProviderFor(socialAuthService)
+final socialAuthServiceProvider = SocialAuthServiceProvider._();
+
+final class SocialAuthServiceProvider
+    extends
+        $FunctionalProvider<
+          SocialAuthService,
+          SocialAuthService,
+          SocialAuthService
+        >
+    with $Provider<SocialAuthService> {
+  SocialAuthServiceProvider._()
+    : super(
+        from: null,
+        argument: null,
+        retry: null,
+        name: r'socialAuthServiceProvider',
+        isAutoDispose: false,
+        dependencies: null,
+        $allTransitiveDependencies: null,
+      );
+
+  @override
+  String debugGetCreateSourceHash() => _$socialAuthServiceHash();
+
+  @$internal
+  @override
+  $ProviderElement<SocialAuthService> $createElement(
+    $ProviderPointer pointer,
+  ) => $ProviderElement(pointer);
+
+  @override
+  SocialAuthService create(Ref ref) {
+    return socialAuthService(ref);
+  }
+
+  /// {@macro riverpod.override_with_value}
+  Override overrideWithValue(SocialAuthService value) {
+    return $ProviderOverride(
+      origin: this,
+      providerOverride: $SyncValueProvider<SocialAuthService>(value),
+    );
+  }
+}
+
+String _$socialAuthServiceHash() => r'20e56aba95f9116d3e9de96f65ea795cb90b3ce5';
+
 /// Profilo dell'utente corrente (`null` se deve ancora fare l'onboarding).
 
 @ProviderFor(CurrentProfile)

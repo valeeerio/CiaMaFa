@@ -38,6 +38,18 @@ abstract final class Env {
     'FIREBASE_ANDROID_APP_ID',
   );
 
+  /// Google Sign-In (accesso, Fase 10). Client OAuth creati su Google Cloud
+  /// Console, nello stesso progetto di Firebase; senza, il pulsante Google
+  /// resta disabilitato.
+  static String googleWebClientId = const String.fromEnvironment(
+    'GOOGLE_WEB_CLIENT_ID',
+  );
+  static String googleIosClientId = const String.fromEnvironment(
+    'GOOGLE_IOS_CLIENT_ID',
+  );
+
+  static bool get isGoogleSignInConfigured => googleWebClientId.isNotEmpty;
+
   static bool get isSupabaseConfigured =>
       supabaseUrl.isNotEmpty && supabasePublishableKey.isNotEmpty;
 
@@ -67,6 +79,8 @@ abstract final class Env {
         'FIREBASE_ANDROID_APP_ID',
         firebaseAndroidAppId,
       );
+      googleWebClientId = pick('GOOGLE_WEB_CLIENT_ID', googleWebClientId);
+      googleIosClientId = pick('GOOGLE_IOS_CLIENT_ID', googleIosClientId);
     } catch (_) {
       // Asset assente o non valido: resta "non configurato".
     }

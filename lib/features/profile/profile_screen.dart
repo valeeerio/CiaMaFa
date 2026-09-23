@@ -10,6 +10,7 @@ import '../onboarding/onboarding_provider.dart';
 import '../onboarding/onboarding_screen.dart'
     show nicknameMaxLength, nicknameMinLength;
 import '../onboarding/profile_repository.dart';
+import '../onboarding/social_auth_service.dart';
 
 /// Profilo: nickname, notifiche, crediti e cancellazione del profilo.
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -25,7 +26,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   );
   bool _saving = false;
   bool _busy = false;
+  bool _linking = false;
   String? _nicknameError;
+  String? _linkError;
+
+  /// Senza Apple/Google collegato: su un telefono nuovo si perderebbe il
+  /// profilo. Cambia da sola dopo un collegamento riuscito.
+  bool get _isAnonymous => ref.read(profileRepositoryProvider).isAnonymous;
 
   @override
   void dispose() {
@@ -119,6 +126,33 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  Future<void> _link(SocialProvider provider) async {
+    if (_linking) return;
+    setState(() {
+      _linking = true;
+      _linkError = null;
+    });
+    try {
+      await ref.read(socialAuthServiceProvider).link(provider);
+      if (mounted) {
+        setState(() {}); // _isAnonymous ora legge il nuovo stato
+        _snack('Account collegato');
+      }
+    } on IdentityAlreadyLinkedException {
+      if (mounted) {
+        setState(
+          () => _linkError =
+              'Questo account ${provider.label} è già collegato a un altro '
+              'profilo del gruppo.',
+        );
+      }
+    } catch (e) {
+      if (mounted) setState(() => _linkError = _failure(e));
+    } finally {
+      if (mounted) setState(() => _linking = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = ref.watch(currentProfileProvider).value;
@@ -201,6 +235,58 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     : const Text('Salva'),
               ),
             ),
+            if (_isAnonymous) ...[
+              const SizedBox(height: 28),
+              Text('Account', style: text.titleSmall),
+              const SizedBox(height: 4),
+              Text(
+                'Su un telefono nuovo perderesti il profilo. Collegalo ad '
+                'Apple o Google per ritrovarlo sempre.',
+                style: text.bodySmall?.copyWith(color: AppColors.muted),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      key: const ValueKey('link-apple'),
+                      onPressed: _linking
+                          ? null
+                          : () => _link(SocialProvider.apple),
+                      icon: const Icon(Icons.apple),
+                      label: const Text('Apple'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      key: const ValueKey('link-google'),
+                      onPressed: _linking
+                          ? null
+                          : () => _link(SocialProvider.google),
+                      icon: const Icon(Icons.g_mobiledata),
+                      label: const Text('Google'),
+                    ),
+                  ),
+                ],
+              ),
+              if (_linking) ...[
+                const SizedBox(height: 8),
+                const Center(
+                  child: SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                ),
+              ],
+              if (_linkError != null) ...[
+                const SizedBox(height: 8),
+                Text(
+                  _linkError!,
+                  style: text.bodySmall?.copyWith(color: AppColors.coralText),
+                ),
+              ],
+            ],
             const SizedBox(height: 28),
             Text('Notifiche', style: text.titleSmall),
             const SizedBox(height: 8),

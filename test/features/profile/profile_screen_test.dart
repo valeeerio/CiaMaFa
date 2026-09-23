@@ -1,6 +1,7 @@
 import 'package:ciamafa/core/theme.dart';
 import 'package:ciamafa/features/onboarding/onboarding_provider.dart';
 import 'package:ciamafa/features/onboarding/profile_repository.dart';
+import 'package:ciamafa/features/onboarding/social_auth_service.dart';
 import 'package:ciamafa/features/profile/credits_screen.dart';
 import 'package:ciamafa/features/profile/profile_screen.dart';
 import 'package:flutter/material.dart';
@@ -11,15 +12,23 @@ import 'package:mocktail/mocktail.dart';
 
 class MockProfiles extends Mock implements ProfileRepository {}
 
+class MockSocialAuth extends Mock implements SocialAuthService {}
+
 const _me = Profile(id: 'me', nickname: 'Valerio', notificationsEnabled: true);
 
 void main() {
   late MockProfiles repo;
+  late MockSocialAuth social;
   late GoRouter router;
+
+  setUpAll(() => registerFallbackValue(SocialProvider.apple));
 
   setUp(() {
     repo = MockProfiles();
+    social = MockSocialAuth();
     when(() => repo.fetchCurrentProfile()).thenAnswer((_) async => _me);
+    when(() => repo.isSignedIn).thenReturn(true);
+    when(() => repo.isAnonymous).thenReturn(false);
   });
 
   Future<void> pump(WidgetTester tester) async {
@@ -50,7 +59,10 @@ void main() {
     addTearDown(router.dispose);
     final container = ProviderContainer(
       retry: (_, _) => null,
-      overrides: [profileRepositoryProvider.overrideWithValue(repo)],
+      overrides: [
+        profileRepositoryProvider.overrideWithValue(repo),
+        socialAuthServiceProvider.overrideWithValue(social),
+      ],
     );
     addTearDown(container.dispose);
     await container.read(currentProfileProvider.future); // come nell'app
@@ -300,6 +312,65 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('open-licenses')));
       await tester.pumpAndSettle();
       expect(find.byType(LicensePage), findsOneWidget);
+    });
+  });
+
+  group('Collega account (Fase 10)', () {
+    testWidgets('hidden once Apple/Google is already linked', (tester) async {
+      when(() => repo.isAnonymous).thenReturn(false);
+      await pump(tester);
+      expect(find.byKey(const ValueKey('link-apple')), findsNothing);
+      expect(find.byKey(const ValueKey('link-google')), findsNothing);
+    });
+
+    testWidgets('shown for an anonymous profile, with both buttons', (
+      tester,
+    ) async {
+      when(() => repo.isAnonymous).thenReturn(true);
+      await pump(tester);
+      expect(find.byKey(const ValueKey('link-apple')), findsOneWidget);
+      expect(find.byKey(const ValueKey('link-google')), findsOneWidget);
+    });
+
+    testWidgets('linking Apple succeeds and says so', (tester) async {
+      when(() => repo.isAnonymous).thenReturn(true);
+      when(() => social.link(SocialProvider.apple)).thenAnswer((_) async {});
+      await pump(tester);
+
+      await tester.tap(find.byKey(const ValueKey('link-apple')));
+      await tester.pumpAndSettle();
+
+      verify(() => social.link(SocialProvider.apple)).called(1);
+      expect(find.text('Account collegato'), findsOneWidget);
+    });
+
+    testWidgets('an identity already linked elsewhere shows why', (
+      tester,
+    ) async {
+      when(() => repo.isAnonymous).thenReturn(true);
+      when(() => social.link(SocialProvider.google))
+          .thenThrow(const IdentityAlreadyLinkedException());
+      await pump(tester);
+
+      await tester.tap(find.byKey(const ValueKey('link-google')));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('è già collegato a un altro profilo'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a generic failure is reported too', (tester) async {
+      when(() => repo.isAnonymous).thenReturn(true);
+      when(() => social.link(SocialProvider.apple))
+          .thenThrow(Exception('offline'));
+      await pump(tester);
+
+      await tester.tap(find.byKey(const ValueKey('link-apple')));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Ops, qualcosa non va'), findsOneWidget);
     });
   });
 

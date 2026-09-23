@@ -2,12 +2,17 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../core/supabase_client.dart';
 import 'profile_repository.dart';
+import 'social_auth_service.dart';
 
 part 'onboarding_provider.g.dart';
 
 @Riverpod(keepAlive: true)
 ProfileRepository profileRepository(Ref ref) =>
     SupabaseProfileRepository(supabase);
+
+@Riverpod(keepAlive: true)
+SocialAuthService socialAuthService(Ref ref) =>
+    SupabaseSocialAuthService(supabase);
 
 /// Profilo dell'utente corrente (`null` se deve ancora fare l'onboarding).
 @Riverpod(keepAlive: true)

@@ -25,6 +25,13 @@ class NicknameTakenException implements Exception {
 }
 
 abstract interface class ProfileRepository {
+  /// Vero se c'è già una sessione (Apple/Google, o ancora anonima).
+  bool get isSignedIn;
+
+  /// Vero se la sessione corrente è ancora anonima (nessun account
+  /// Apple/Google collegato: su un telefono nuovo si perderebbe il profilo).
+  bool get isAnonymous;
+
   /// Profilo dell'utente corrente, `null` se senza sessione o senza profilo.
   Future<Profile?> fetchCurrentProfile();
 
@@ -38,8 +45,9 @@ abstract interface class ProfileRepository {
   /// Cancella il proprio profilo (e i piani ancora attivi) ed esce.
   Future<void> deleteProfile();
 
-  /// Accede in modo anonimo (se serve) e crea il profilo nel gruppo unico.
-  /// Lancia [NicknameTakenException] se il nickname è già usato.
+  /// Crea il profilo nel gruppo unico per l'utente già autenticato (Apple o
+  /// Google, Fase 10). Lancia [NicknameTakenException] se il nickname è già
+  /// usato.
   Future<Profile> joinGroup({
     required String nickname,
     required bool notificationsEnabled,
@@ -50,6 +58,12 @@ class SupabaseProfileRepository implements ProfileRepository {
   SupabaseProfileRepository(this._client);
 
   final SupabaseClient _client;
+
+  @override
+  bool get isSignedIn => _client.auth.currentUser != null;
+
+  @override
+  bool get isAnonymous => _client.auth.currentUser?.isAnonymous ?? false;
 
   @override
   Future<Profile?> fetchCurrentProfile() async {
@@ -104,9 +118,12 @@ class SupabaseProfileRepository implements ProfileRepository {
     required String nickname,
     required bool notificationsEnabled,
   }) async {
-    final user =
-        _client.auth.currentUser ??
-        (await _client.auth.signInAnonymously()).user!;
+    final user = _client.auth.currentUser;
+    if (user == null) {
+      // Non dovrebbe succedere: la schermata fa accedere con Apple/Google
+      // prima di arrivare qui.
+      throw StateError('Devi accedere con Apple o Google prima di continuare.');
+    }
     try {
       final row = await _client
           .from('profiles')
