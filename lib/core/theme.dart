@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// Palette dal prototipo approvato. NON modificare.
@@ -14,6 +16,22 @@ abstract final class AppColors {
   static const acidGreenShadow = Color(0xFFA9D01D);
   static const muted = Color(0xFF5C6670);
   static const white = Color(0xFFFFFFFF);
+}
+
+/// Font inclusi negli asset (`assets/google_fonts/`): nessun download a
+/// runtime, quindi nessun IP dell'utente inviato a Google. Registra anche la
+/// licenza OFL dei font nella pagina "Licenze open source".
+void configureBundledFonts() {
+  GoogleFonts.config.allowRuntimeFetching = false;
+  LicenseRegistry.addLicense(() async* {
+    for (final (family, file) in const [
+      ('Baloo 2', 'OFL-Baloo2.txt'),
+      ('Poppins', 'OFL-Poppins.txt'),
+    ]) {
+      final text = await rootBundle.loadString('assets/google_fonts/$file');
+      yield LicenseEntryWithLineBreaks([family], text);
+    }
+  });
 }
 
 ThemeData buildAppTheme() {

@@ -88,7 +88,7 @@ class FirebasePushMessaging implements PushMessaging {
       appId: appId,
       messagingSenderId: Env.firebaseSenderId,
       projectId: Env.firebaseProjectId,
-      iosBundleId: ios ? 'com.valeriomortella.ciamafa.ciamafa' : null,
+      iosBundleId: ios ? 'com.valeriomortella.ciamafa' : null,
     );
   }
 

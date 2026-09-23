@@ -127,7 +127,7 @@ void main() {
         (ios.apiKey, ios.appId, ios.projectId),
         ('ios-key', 'ios-app', 'proj'),
       );
-      expect(ios.iosBundleId, 'com.valeriomortella.ciamafa.ciamafa');
+      expect(ios.iosBundleId, 'com.valeriomortella.ciamafa');
       final and = FirebasePushMessaging.optionsFromEnv(TargetPlatform.android)!;
       expect((and.apiKey, and.appId), ('and-key', 'and-app'));
       expect(

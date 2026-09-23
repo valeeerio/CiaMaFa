@@ -5,7 +5,7 @@ solo le credenziali, che si collegano una volta sola.
 
 ## Già fatto
 - Progetto Firebase **ciamafa** (piano Spark), app iOS e Android registrate con
-  l'id `com.valeriomortella.ciamafa.ciamafa`.
+  l'id `com.valeriomortella.ciamafa`.
 - Valori Firebase in `env.json` (`FIREBASE_*`, gitignored; i nomi sono in
   `env.example.json`). Se mancano, l'app parte senza push.
 - Tabella `device_tokens`, RPC `register_device_token` / `unregister_device_token`,
@@ -36,5 +36,5 @@ solo le credenziali, che si collegano una volta sola.
 - Da un altro profilo lancia un piano con l'app in secondo piano: arriva la push.
   Toccandola si apre il piano. Con l'app aperta vale il banner in-app.
 - Sul simulatore iOS si può simulare la notifica (senza APNs vero):
-  `xcrun simctl push booted com.valeriomortella.ciamafa.ciamafa payload.json`
+  `xcrun simctl push booted com.valeriomortella.ciamafa payload.json`
   con `{"aps":{"alert":{"title":"Prova","body":"🍻 Bar · Pineta"}},"route":"/plans"}`.

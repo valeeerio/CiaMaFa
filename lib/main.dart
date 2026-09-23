@@ -12,6 +12,7 @@ import 'features/push/push_provider.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  configureBundledFonts();
   await Env.load();
   if (!Env.isSupabaseConfigured) {
     runApp(const _MissingConfigApp());

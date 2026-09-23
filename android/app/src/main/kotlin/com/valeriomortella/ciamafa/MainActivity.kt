@@ -1,4 +1,4 @@
-package com.valeriomortella.ciamafa.ciamafa
+package com.valeriomortella.ciamafa
 
 import io.flutter.embedding.android.FlutterActivity
 
